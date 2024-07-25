@@ -1,3 +1,6 @@
+#ifndef BITWISE_INTERVAL_H
+#define BITWISE_INTERVAL_H
+
 #include <type_traits>
 #include <climits>
 #include <algorithm>
@@ -557,3 +560,5 @@ Interval<T> xor_interval_1(Interval<T> const & x, Interval<T> const & y)
         return {low, high, step};
     }
 }
+
+#endif
