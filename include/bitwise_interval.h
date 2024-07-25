@@ -9,13 +9,13 @@
 namespace
 {
     // template <typename T>
-    // constexpr T zero = T(0); 
+    // constexpr T zero = T(0);
 
     // template <typename T>
-    // constexpr T one = T(1); 
+    // constexpr T one = T(1);
 
     // template <typename T>
-    // constexpr T msb = T(1ULL << (sizeof (T) * CHAR_BIT - 1U)); 
+    // constexpr T msb = T(1ULL << (sizeof (T) * CHAR_BIT - 1U));
 
     // template <typename T>
     // T get_p2_step(T step)
@@ -25,7 +25,7 @@ namespace
 
     // template<typename T, class E = void>
     // class C {};
-    
+
     // template<typename T>
     // class C<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
     // {
@@ -302,17 +302,18 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
         T step_x = ((x.step & (x.step - one)) == zero) ? x.step : one;
         T step_y = ((y.step & (y.step - one)) == zero) ? y.step : one;
 
+        // TODO
+        if (step_x != step_y)
+        {
+            step_x = step_y = one;
+        }
+        T step = step_x;
+
         T mask_x = ~(step_x - one);
         T mask_y = ~(step_y - one);
 
         T fixed_x = ~mask_x & x.low;
         T fixed_y = ~mask_y & y.low;
-
-        // TODO
-        // T step = ((step_x > step_y) && (fixed_x == zero)) ? step_x
-        //        : ((step_y > step_x) && (fixed_y == zero)) ? step_y
-        //        : std::min(step_x, step_y);
-        T step = one;
 
         auto low_x = x, high_x = x;
         auto low_y = y, high_y = y;
@@ -494,7 +495,7 @@ Interval<T> xor_interval_1(Interval<T> const & x, Interval<T> const & y)
                     }
                     else
                     {
-                        low |= (low_x.low ^ low_y.high) & b;    
+                        low |= (low_x.low ^ low_y.high) & b;
                     }
                 }
             }
@@ -549,7 +550,7 @@ Interval<T> xor_interval_1(Interval<T> const & x, Interval<T> const & y)
                     }
                     else
                     {
-                        high |= (high_x.low ^ high_y.high) & b;    
+                        high |= (high_x.low ^ high_y.high) & b;
                     }
                 }
             }

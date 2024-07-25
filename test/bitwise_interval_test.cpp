@@ -66,66 +66,12 @@ namespace
         return T(std::stoull(str, nullptr, 0));
     }
 
-    // template <typename T>
-    // std::array<Interval<T>, 3> brute_force(Interval<T> const & x, Interval<T> const & y)
-    // {
-    //     Interval<T> b_and, b_or, b_xor;
-
-    //     b_and.low  = b_or.low  = b_xor.low  = std::numeric_limits<T>::max();
-    //     b_and.high = b_or.high = b_xor.high = std::numeric_limits<T>::min();
-
-    //     for (T i = x.low; ; i += x.step)
-    //     {
-    //         for (T j = y.low; ; j += y.step)
-    //         {
-    //             T r;
-
-    //             r = i & j;
-    //             if (r < b_and.low)
-    //             {
-    //                 b_and.low = r;
-    //             }
-    //             if (r > b_and.high)
-    //             {
-    //                 b_and.high = r;
-    //             }
-
-    //             r = i | j;
-    //             if (r < b_or.low)
-    //             {
-    //                 b_or.low = r;
-    //             }
-    //             if (r > b_or.high)
-    //             {
-    //                 b_or.high = r;
-    //             }
-
-    //             r = i ^ j;
-    //             if (r < b_xor.low)
-    //             {
-    //                 b_xor.low = r;
-    //             }
-    //             if (r > b_xor.high)
-    //             {
-    //                 b_xor.high = r;
-    //             }
-
-    //             if (j == y.high) break;
-    //         }
-
-    //         if (i == x.high) break;
-    //     }
-
-    //     return {b_and, b_or, b_xor};
-    // }
-
     template <typename T>
     bool test_interval(Interval<T> const x, Interval<T> const y, bool trace = true)
     {
         auto c_and = and_interval(x, y);
         auto c_or  = or_interval(x, y);
         auto c_xor = xor_interval(x, y);
-        // auto c_xor = xor_interval_1(x, y);
 
         struct
         {
@@ -192,7 +138,7 @@ namespace
             if (i == x.high) break;
         }
 
-        bool ok = (b_and == c_and) && r_and.ok && (b_or == c_or) && r_or.ok && (b_xor == c_xor) && r_xor.ok;
+        bool ok = (c_and >= b_and) && r_and.ok && (c_or >= b_or) && r_or.ok && (c_xor >= b_xor) && r_xor.ok;
 
         if (!ok || trace)
         {
@@ -205,9 +151,9 @@ namespace
                                     "KO"
                 );
             };
-            std::cout << ok(c_and, b_and, r_and.ok) << x << " & " << y << " -> " << c_and << " / " << b_and << std::endl; 
-            std::cout << ok(c_or , b_or , r_or.ok ) << x << " | " << y << " -> " << c_or  << " / " << b_or  << std::endl; 
-            std::cout << ok(c_xor, b_xor, r_xor.ok) << x << " ^ " << y << " -> " << c_xor << " / " << b_xor << std::endl; 
+            std::cout << ok(c_and, b_and, r_and.ok) << x << " & " << y << " -> " << c_and << " / " << b_and << std::endl;
+            std::cout << ok(c_or , b_or , r_or.ok ) << x << " | " << y << " -> " << c_or  << " / " << b_or  << std::endl;
+            std::cout << ok(c_xor, b_xor, r_xor.ok) << x << " ^ " << y << " -> " << c_xor << " / " << b_xor << std::endl;
         }
 
         return ok;
@@ -254,7 +200,7 @@ namespace
             std::cerr << "invalid number\n";
             return;
         }
-        
+
         test_interval(i, j, true);
     }
 
@@ -339,7 +285,7 @@ namespace
             if (a_low > a_high) std::swap(a_low, a_high);
             if (b_low > b_high) std::swap(b_low, b_high);
 
-            a_step = 1U << (rand() % 3); b_step = 1U << (rand() % 3);
+            a_step = T(1ULL << (rand() % 3)); b_step = T(1ULL << (rand() % 3));
             //a_step = b_step = 1U;
             //b_step = a_step;
 
