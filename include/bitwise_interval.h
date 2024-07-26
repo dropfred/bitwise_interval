@@ -91,19 +91,31 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
             }
             else
             {
+                // TODO: step
+                return {T(0), y.high};
             }
         }
         else
         {
-            if ((y.high < 0) || (y.low >= 0))
+            if (y.low >= 0)
             {
+                // TODO: step
+                return {T(0), y.high};
+            }
+            else if (y.high < 0)
+            {
+                auto n = and_interval(UI {UT(x.low), UT(-1)}, UI {UT(y.low), UT(y.high)});
+                auto p = and_interval(UI {UT(0), UT(x.high)}, UI {UT(x.low), UT(y.high)});
+                return {T(n.low), T(p.high)};
             }
             else
             {
+                // TODO: step
+                return {T(and_interval(UI {UT(x.low), UT(-1)}, UI {UT(y.low), UT(-1)}).low), std::max(x.high, y.high)};
             }
         }
 
-        return {T(0), T(0)};
+        // return {T(0), T(0)};
     }
     else
     {
@@ -249,7 +261,7 @@ Interval<T> or_interval(Interval<T> const & x, Interval<T> const & y)
     return not_interval(and_interval(not_interval(x), not_interval(y)));
 }
 
-// KO : The `or` trick above does't work with `xor`.
+// KO : The `or` trick above doesn't work with `xor`.
 // template <typename T>
 // Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
 // {

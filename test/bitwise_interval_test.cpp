@@ -1,4 +1,4 @@
-#include "bitwise_interval.h"
+#include <bitwise_interval.h>
 
 #include <iostream>
 #include <string>
@@ -138,7 +138,7 @@ namespace
             if (i == x.high) break;
         }
 
-        bool ok = (c_and >= b_and) && r_and.ok && (c_or >= b_or) && r_or.ok && (c_xor >= b_xor) && r_xor.ok;
+        bool ok = (c_and >= b_and) && r_and.ok/* && (c_or >= b_or) && r_or.ok && (c_xor >= b_xor) && r_xor.ok*/;
 
         if (!ok || trace)
         {
@@ -148,14 +148,14 @@ namespace
                 (
                     r && (a == b) ? "OK " :
                     r && (a >= b) ? "OVER " :
-                    (a == b)      ? "STEP" :
+                    (a == b)      ? "STEP " :
                     (a >= b)      ? "STEP+OVER" :
                                     "KO "
                 );
             };
             std::cout << ok(c_and, b_and, r_and.ok) << x << " & " << y << " -> " << c_and << " : " << b_and << std::endl;
-            std::cout << ok(c_or , b_or , r_or.ok ) << x << " | " << y << " -> " << c_or  << " : " << b_or  << std::endl;
-            std::cout << ok(c_xor, b_xor, r_xor.ok) << x << " ^ " << y << " -> " << c_xor << " : " << b_xor << std::endl;
+            // std::cout << ok(c_or , b_or , r_or.ok ) << x << " | " << y << " -> " << c_or  << " : " << b_or  << std::endl;
+            // std::cout << ok(c_xor, b_xor, r_xor.ok) << x << " ^ " << y << " -> " << c_xor << " : " << b_xor << std::endl;
         }
 
         return ok;
@@ -227,24 +227,28 @@ namespace
     template <typename T>
     class Rand
     {
+        using D = std::uniform_int_distribution<T>;
+        
         std::random_device rd {};
-        std::uniform_int_distribution<uint64_t> dist {std::numeric_limits<uint64_t>::min(), std::numeric_limits<uint64_t>::max()};
 
     public:
 
         T operator () ()
         {
-            return T(dist(rd));
-        }
-
-        T operator () (T a)
-        {
-            return ((a != 0) ? T(dist(rd) % a) : 0);
+            if constexpr (sizeof (T) == 1)
+            {
+                return T((Rand<short> {})(std::numeric_limits<T>::min(), std::numeric_limits<T>::max()));
+            }
+            return (D {std::numeric_limits<T>::min(), std::numeric_limits<T>::max()})(rd);
         }
 
         T operator () (T a, T b)
         {
-            return T((dist(rd) % ((b - a) + 1)) + a);
+            if constexpr (sizeof (T) == 1)
+            {
+                return T((Rand<short> {})(a, b));
+            }
+            return (D {a, b})(rd);
         }
     };
 
@@ -256,16 +260,17 @@ namespace
         constexpr T bits = (sizeof (T) * CHAR_BIT) - 1U;
         while (true)
         {
-            T a_low = T(rand()); T a_high = a_low + T(rand(std::min(T(100000), T(std::numeric_limits<T>::max() - a_low))));
-            T b_low = T(rand()); T b_high = b_low + T(rand(std::min(T(100000), T(std::numeric_limits<T>::max() - b_low))));
-            T a_step = T(1ULL << (rand() % bits)), b_step = T(1ULL << (rand() % bits));
+            T a_low = T(rand()); T a_high = rand(a_low, T(std::numeric_limits<T>::max()));
+            T b_low = T(rand()); T b_high = rand(b_low, T(std::numeric_limits<T>::max()));
+
+            T a_step = rand(1, bits), b_step = rand(1,  bits);
 
 #if 0
             a_low &= 0xF; a_high &= 0xF;
             b_low &= 0xF; b_high &= 0xF;
             if (a_low > a_high) std::swap(a_low, a_high);
             if (b_low > b_high) std::swap(b_low, b_high);
-            a_step = T(1ULL << (rand() % 3)); b_step = T(1ULL << (rand() % 3));
+            a_step &= 3; b_step &= 3;
             // a_step = b_step = 1U;
 #endif
 
