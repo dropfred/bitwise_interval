@@ -148,12 +148,14 @@ namespace
                 (
                     r && (a == b) ? "OK " :
                     r && (a >= b) ? "OVER " :
-                                    "KO"
+                    (a == b)      ? "STEP" :
+                    (a >= b)      ? "STEP+OVER" :
+                                    "KO "
                 );
             };
-            std::cout << ok(c_and, b_and, r_and.ok) << x << " & " << y << " -> " << c_and << " / " << b_and << std::endl;
-            std::cout << ok(c_or , b_or , r_or.ok ) << x << " | " << y << " -> " << c_or  << " / " << b_or  << std::endl;
-            std::cout << ok(c_xor, b_xor, r_xor.ok) << x << " ^ " << y << " -> " << c_xor << " / " << b_xor << std::endl;
+            std::cout << ok(c_and, b_and, r_and.ok) << x << " & " << y << " -> " << c_and << " : " << b_and << std::endl;
+            std::cout << ok(c_or , b_or , r_or.ok ) << x << " | " << y << " -> " << c_or  << " : " << b_or  << std::endl;
+            std::cout << ok(c_xor, b_xor, r_xor.ok) << x << " ^ " << y << " -> " << c_xor << " : " << b_xor << std::endl;
         }
 
         return ok;
@@ -166,20 +168,6 @@ namespace
 
         try
         {
-            //size_t a = 0;
-            //i.low  = parse<T>(args[a++]);
-            //i.high = parse<T>(args[a++]);
-            //if (step) i.step = parse<T>(args[a++]);
-            //j.low  = parse<T>(args[a++]);
-            //j.high = parse<T>(args[a++]);
-            //if (step) j.step = parse<T>(args[a++]);
-            //assert
-            //(
-            //    (i.low <= i.high) &&
-            //    (j.low <= j.high) &&
-            //    (i.step > 0) &&
-            //    (j.step > 0)
-            //);
             char const ** a = args;
             i.low  = parse<T>(*a++);
             i.high = parse<T>(*a++);
@@ -265,14 +253,6 @@ namespace
     {
         Rand<T> rand {};
 
-        // {
-        //     std::cout << "####\n";
-        //     for (int i = 0; i < 10; ++i) std::cout << int(rand()) << std::endl;
-        //     std::cout << "####\n";
-        //     for (int i = 0; i < 100; ++i) std::cout << int(rand(10, 15)) << std::endl;
-        //     std::cout << "####\n";
-        // }
-
         constexpr T bits = (sizeof (T) * CHAR_BIT) - 1U;
         while (true)
         {
@@ -280,17 +260,14 @@ namespace
             T b_low = T(rand()); T b_high = b_low + T(rand(std::min(T(100000), T(std::numeric_limits<T>::max() - b_low))));
             T a_step = T(1ULL << (rand() % bits)), b_step = T(1ULL << (rand() % bits));
 
+#if 0
             a_low &= 0xF; a_high &= 0xF;
             b_low &= 0xF; b_high &= 0xF;
             if (a_low > a_high) std::swap(a_low, a_high);
             if (b_low > b_high) std::swap(b_low, b_high);
-
             a_step = T(1ULL << (rand() % 3)); b_step = T(1ULL << (rand() % 3));
-            //a_step = b_step = 1U;
-            //b_step = a_step;
-
-            // a_high = a_low;
-            // b_high = b_low;
+            // a_step = b_step = 1U;
+#endif
 
             a_high -= (a_high - a_low) % a_step;
             b_high -= (b_high - b_low) % b_step;
@@ -310,7 +287,8 @@ int main(int argc, char const * argv[])
         static std::map<std::string, std::function<void (void)>> const tfs =
         {
             //{"s8" , test_all<int8_t>},
-            //{"u8" , test_all<uint8_t>},
+            //{"u8" , test_all<uint8_t>}
+            {"s8" , test_random<int8_t>},
             {"u8" , test_random<uint8_t>},
             //{"s16", test_random<int16_t>},
             //{"s32", test_random<int32_t>},

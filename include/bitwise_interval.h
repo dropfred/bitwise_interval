@@ -249,7 +249,7 @@ Interval<T> or_interval(Interval<T> const & x, Interval<T> const & y)
     return not_interval(and_interval(not_interval(x), not_interval(y)));
 }
 
-// KO
+// KO : The `or` trick above does't work with `xor`.
 // template <typename T>
 // Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
 // {
@@ -303,11 +303,8 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
         T step_y = ((y.step & (y.step - one)) == zero) ? y.step : one;
 
         // TODO
-        if (step_x != step_y)
-        {
-            step_x = step_y = one;
-        }
-        T step = step_x;
+        T step = std::min(step_x, step_y);
+        step_x = step_y = step;
 
         T mask_x = ~(step_x - one);
         T mask_y = ~(step_y - one);
@@ -331,11 +328,8 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
                 {
                     if (flip_y)
                     {
-                        T fm = ~std::min(mask_x, mask_y);
-                        low_x.low = fixed_x;
-                        low_x.high = /*(r & fm) | */fixed_x;
-                        low_y.low = fixed_y;
-                        low_y.high = /*(r & fm) | */fixed_y;
+                        low_x.low = low_x.high = fixed_x;
+                        low_y.low = low_y.high = fixed_y;
                     }
                     else
                     {
