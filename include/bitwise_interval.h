@@ -5,51 +5,21 @@
 #include <climits>
 #include <algorithm>
 // #include <bit>
-
-namespace
-{
-    // template <typename T>
-    // constexpr T zero = T(0);
-
-    // template <typename T>
-    // constexpr T one = T(1);
-
-    // template <typename T>
-    // constexpr T msb = T(1ULL << (sizeof (T) * CHAR_BIT - 1U));
-
-    // template <typename T>
-    // T get_p2_step(T step)
-    // {
-    //     return ((step & (step - 1)) == 0) ? step : 1;
-    // }
-
-    // template<typename T, class E = void>
-    // class C {};
-
-    // template<typename T>
-    // class C<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
-    // {
-    //     static constexpr T zero = T(0);
-    //     static constexpr T one = T(1);
-    //     static constexpr T msb = T(one << (sizeof (T) * CHAR_BIT - 1U));
-    // };
-}
-
 // #include <concepts>
 
 // template <std::integral T>
-// struct Interval
-// {
-//     T low = 0, high = 0;
-//     T step = 1;
-// };
-
-
 template <typename T>
 struct Interval
 {
-    T low = 0, high = 0;
-    T step = 1;
+    T low, high;
+    T step;
+
+    Interval(T low, T high, T step = T(1)) : low(low), high(high), step(step) {}
+
+    Interval() : Interval(T(0), T(0)) {}
+
+    template <typename X>
+    Interval(Interval<X> const & i) : Interval(T(i.low), T(i.high), T(i.step)) {}
 };
 
 template <typename T>
@@ -58,24 +28,49 @@ Interval<T> not_interval(Interval<T> const & i)
     return {T(~i.high), T(~i.low), i.step};
 }
 
-// template <typename X, typename Y>
-// auto and_interval_dev(Interval<X> const & x, Interval<Y> const & y)
-// {
-//     static_assert(std::is_integral_v<X> && std::is_integral_v<X>);
-//     using T = std::common_type<X, Y>::type;
+template <typename X, typename Y>
+auto and_interval(Interval<X> const & x, Interval<Y> const & y)
+{
+	using CT = std::common_type_t<X, Y>;
 
-//     return {T(0), T(0)};
-// }
+	return and_interval(Interval<CT> {x}, Interval<CT> {y});
+}
 
-// #include <bitset>
+template <typename T>
+T first(T v, T step, T rem)
+{
+    T r = v % step;
+    if (r <= rem)
+    {
+        v += rem - r;
+    }
+    else
+    {
+        v += step - (r - rem);
+    }
+    return v;
+}
 
-// TODO : step
+template <typename T>
+T last(T v, T step, T rem)
+{
+    T r = v % step;
+    if (r >= rem)
+    {
+        v -= (r - rem);
+    }
+    else
+    {
+        v = (v - step) + (rem - r);
+    }
+    return v;
+}
+
 template <typename T>
 Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
 {
     if constexpr (std::is_signed_v<T>)
     {
-        // TODO : signed
         using UT = std::make_unsigned_t<T>;
         using UI = Interval<UT>;
         if ((x.high < 0) || (x.low >= 0))
@@ -91,8 +86,7 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
             }
             else
             {
-                // TODO: step
-                return {T(0), y.high};
+                return and_interval(y, x);
             }
         }
         else
@@ -104,14 +98,25 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
             }
             else if (y.high < 0)
             {
-                auto n = and_interval(UI {UT(x.low), UT(-1)}, UI {UT(y.low), UT(y.high)});
-                auto p = and_interval(UI {UT(0), UT(x.high)}, UI {UT(x.low), UT(y.high)});
+                // TODO: step
+                //auto n = and_interval(UI {UT(x.low), UT(~0)}, UI {UT(y.low), UT(y.high)});
+                //auto p = and_interval(UI {UT(0), UT(x.high)}, UI {UT(y.low), UT(y.high)});
+                auto n = and_interval(UI {UT(x.low), last(UT(~0), UT(x.step), UT(UT(x.low) % UT(x.step)))}, UI {UT(y.low), UT(y.high)});
+                auto p = and_interval(UI {first(UT(0), UT(x.step), UT(UT(x.low) % UT(x.step))), UT(x.high)}, UI {UT(y.low), UT(y.high)});
                 return {T(n.low), T(p.high)};
             }
             else
             {
                 // TODO: step
-                return {T(and_interval(UI {UT(x.low), UT(-1)}, UI {UT(y.low), UT(-1)}).low), std::max(x.high, y.high)};
+                auto n = and_interval(UI {UT(x.low), UT(~0)}, UI {UT(y.low), UT(~0)});
+                auto p1 = and_interval(UI {UT(x.low), UT(~0)}, UI {UT(0), UT(y.high)});
+                auto p2 = and_interval(UI {UT(0), UT(x.high)}, UI {UT(y.low), UT(~0)});
+                auto p3 = and_interval(UI {UT(0), UT(x.high)}, UI {UT(0), UT(y.high)});
+                return
+                {
+                    T(n.low),
+                    T(std::max({p1.high, p2.high, p3.high}))
+                };
             }
         }
 
@@ -122,12 +127,6 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
         constexpr T zero = 0U;
         constexpr T one  = 1U;
         constexpr T msb  = one << (sizeof (T) * CHAR_BIT - 1U);
-
-        // using BT = std::bitset<sizeof (T) * CHAR_BIT>;
-
-        // constexpr BT b_zero {};
-        // constexpr BT b_one {1ULL};
-        // constexpr BT b_msb {1ULL << (sizeof (T) * CHAR_BIT - 1U)};
 
         T low  = zero;
         T high = zero;

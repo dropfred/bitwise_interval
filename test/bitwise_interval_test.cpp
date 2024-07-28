@@ -1,6 +1,7 @@
 #include <bitwise_interval.h>
 
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <map>
 #include <functional>
@@ -24,11 +25,11 @@ namespace
     {
         if constexpr (sizeof (T) == 1)
         {
-            os << std::bitset<CHAR_BIT>((unsigned long long)(v.value));
+            os << std::bitset<CHAR_BIT>((unsigned long long)(v.value)) << "(" <<  std::dec << +v.value << ")";
         }
         else
         {
-            os << std::hex << std::uppercase << v.value;
+            os << std::hex << std::uppercase << std::setw(2 * sizeof (T) / CHAR_BIT) << std::setfill('0') << v.value;
         }
         return os;
     }
@@ -138,7 +139,7 @@ namespace
             if (i == x.high) break;
         }
 
-        bool ok = (c_and >= b_and) && r_and.ok/* && (c_or >= b_or) && r_or.ok && (c_xor >= b_xor) && r_xor.ok*/;
+        bool ok = (c_and >= b_and) && r_and.ok && (c_or >= b_or) && r_or.ok/* && (c_xor >= b_xor) && r_xor.ok*/;
 
         if (!ok || trace)
         {
@@ -154,7 +155,7 @@ namespace
                 );
             };
             std::cout << ok(c_and, b_and, r_and.ok) << x << " & " << y << " -> " << c_and << " : " << b_and << std::endl;
-            // std::cout << ok(c_or , b_or , r_or.ok ) << x << " | " << y << " -> " << c_or  << " : " << b_or  << std::endl;
+            std::cout << ok(c_or , b_or , r_or.ok ) << x << " | " << y << " -> " << c_or  << " : " << b_or  << std::endl;
             // std::cout << ok(c_xor, b_xor, r_xor.ok) << x << " ^ " << y << " -> " << c_xor << " : " << b_xor << std::endl;
         }
 
@@ -227,7 +228,7 @@ namespace
     template <typename T>
     class Rand
     {
-        using D = std::uniform_int_distribution<T>;
+        using D = std::uniform_int_distribution<std::conditional_t<(sizeof (T) > 1), T, short int>>;
         
         std::random_device rd {};
 
@@ -235,20 +236,12 @@ namespace
 
         T operator () ()
         {
-            if constexpr (sizeof (T) == 1)
-            {
-                return T((Rand<short> {})(std::numeric_limits<T>::min(), std::numeric_limits<T>::max()));
-            }
-            return (D {std::numeric_limits<T>::min(), std::numeric_limits<T>::max()})(rd);
+            return T((D {std::numeric_limits<T>::min(), std::numeric_limits<T>::max()})(rd));
         }
 
         T operator () (T a, T b)
         {
-            if constexpr (sizeof (T) == 1)
-            {
-                return T((Rand<short> {})(a, b));
-            }
-            return (D {a, b})(rd);
+            return ((a == b) ? a : T((D {a, b})(rd)));
         }
     };
 
@@ -260,10 +253,19 @@ namespace
         constexpr T bits = (sizeof (T) * CHAR_BIT) - 1U;
         while (true)
         {
-            T a_low = T(rand()); T a_high = rand(a_low, T(std::numeric_limits<T>::max()));
-            T b_low = T(rand()); T b_high = rand(b_low, T(std::numeric_limits<T>::max()));
+#define INTERVAL_MAX 0x10000
+            //T dbg_low = T(rand());
+            //auto dbg1 = std::numeric_limits<T>::max() - dbg_low;
+            //auto dbg2 = ((dbg_low >= 0) && ((std::numeric_limits<T>::max() - dbg_low) < INTERVAL_MAX));
+            //auto dbg3 = ((dbg_low >= 0) && ((std::numeric_limits<T>::max() - dbg_low) < INTERVAL_MAX)) ? std::numeric_limits<T>::max() : T(dbg_low + INTERVAL_MAX);
 
-            T a_step = rand(1, bits), b_step = rand(1,  bits);
+            T a_low = T(rand()); T a_high = rand(a_low, (((a_low >= 0) && ((std::numeric_limits<T>::max() - a_low) < INTERVAL_MAX)) ? std::numeric_limits<T>::max() : T(a_low + INTERVAL_MAX)));
+            T b_low = T(rand()); T b_high = rand(b_low, (((b_low >= 0) && ((std::numeric_limits<T>::max() - b_low) < INTERVAL_MAX)) ? std::numeric_limits<T>::max() : T(b_low + INTERVAL_MAX)));
+
+            //std::cout << "### " << ((a_high - a_low) <= INTERVAL_MAX) << " / " << ((b_high - b_low) <= INTERVAL_MAX) << std::endl;
+
+            T a_step = (a_low != a_high) ? rand(1, a_high - a_low) : 1U, b_step = (b_low != b_high) ? rand(1, b_high - b_low) : 1U;
+            //T a_step = T(1ULL << rand(0, bits)), b_step = T(1ULL << rand(0, bits));
 
 #if 0
             a_low &= 0xF; a_high &= 0xF;
@@ -287,6 +289,12 @@ namespace
 
 int main(int argc, char const * argv[])
 {
+    //{
+    //    Interval<int> ii {1, 2};
+    //    Interval<short> si {-10, 5};
+    //    auto i = and_interval(ii, si);
+    //}
+
     if (argc == 2)
     {
         static std::map<std::string, std::function<void (void)>> const tfs =
@@ -295,13 +303,13 @@ int main(int argc, char const * argv[])
             //{"u8" , test_all<uint8_t>}
             {"s8" , test_random<int8_t>},
             {"u8" , test_random<uint8_t>},
-            //{"s16", test_random<int16_t>},
-            //{"s32", test_random<int32_t>},
-            //{"s64", test_random<int64_t>},
+            {"s16", test_random<int16_t>},
+            {"s32", test_random<int32_t>},
+            {"s64", test_random<int64_t>},
             {"u16", test_random<uint16_t>},
             {"u32", test_random<uint32_t>},
             {"u64", test_random<uint64_t>},
-            //{"s"  , test_random<int>},
+            {"s"  , test_random<int>},
             {"u"  , test_random<unsigned int>}
         };
 
