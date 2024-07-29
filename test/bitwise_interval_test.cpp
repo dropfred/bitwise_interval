@@ -12,6 +12,8 @@
 #include <limits>
 #include <cassert>
 
+#include  <cstdlib> // rand
+
 namespace
 {
     template <typename T> struct Dbg
@@ -225,6 +227,30 @@ namespace
         }
     }
 
+#ifdef DEV_REPLAY_RAND
+    template <typename T>
+    class Rand
+    {
+    public:
+
+        Rand()
+        {
+            std::srand(0);
+        }
+
+        T operator () ()
+        {
+            return (*this)(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
+        }
+
+        T operator () (T a, T b)
+        {
+            double r = double(std::rand()) / RAND_MAX;
+
+            return T((a * (1.0 - r)) + (b * r));
+        }
+    };
+#else
     template <typename T>
     class Rand
     {
@@ -236,19 +262,32 @@ namespace
 
         T operator () ()
         {
-            return T((D {std::numeric_limits<T>::min(), std::numeric_limits<T>::max()})(rd));
+            return (*this)(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
         }
 
         T operator () (T a, T b)
         {
-            return ((a == b) ? a : T((D {a, b})(rd)));
+            return T((D {a, b})(rd));
         }
     };
+#endif
 
     template <typename T>
     void test_random()
     {
         Rand<T> rand {};
+
+        // {
+        //     for (int i = 0; i < 10; ++i)
+        //     {
+        //         std::cout << rand() << std::endl;
+        //     }
+        //     for (int i = 0; i < 10; ++i)
+        //     {
+        //         std::cout << rand(5, 5) << std::endl;
+        //     }
+        //     return;
+        // }
 
         constexpr T bits = (sizeof (T) * CHAR_BIT) - 1U;
         while (true)
@@ -289,12 +328,6 @@ namespace
 
 int main(int argc, char const * argv[])
 {
-    //{
-    //    Interval<int> ii {1, 2};
-    //    Interval<short> si {-10, 5};
-    //    auto i = and_interval(ii, si);
-    //}
-
     if (argc == 2)
     {
         static std::map<std::string, std::function<void (void)>> const tfs =
