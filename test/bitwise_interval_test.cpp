@@ -32,7 +32,8 @@ namespace
         }
         else
         {
-            os << std::hex << std::uppercase << std::setw(2 * sizeof (T) / CHAR_BIT) << std::setfill('0') << v.value;
+            // os << std::hex << std::uppercase << std::setw(2 * sizeof (T) / CHAR_BIT) << std::setfill('0') << v.value;
+            os << std::dec << v.value;
         }
         return os;
     }
@@ -81,17 +82,20 @@ namespace
                UT(UT(~a) + 1U + UT(b));
 
         // UT r;
-
+        // // std::cout << "0 diff(" << a << ", " << b << ")" << std::endl;
         // if (a >= 0)
         // {
+        //     // std::cout << "1 diff(" << a << ", " << b << ") -> " << Dbg {UT(a)} << " / "  << Dbg {UT(b)} << " / "  << Dbg {UT(b - a)} << std::endl;
         //     r = UT(b - a);
         // }
         // else if (b < 0)
         // {
+        //     // std::cout << "2 diff(" << a << ", " << b << ") -> " << Dbg {UT(a)} << " / "  << Dbg {UT(b)} << " / "  << Dbg {UT(UT(UT(a) - UT(b)))} << std::endl;
         //     r = UT(UT(a) - UT(b));
         // }
         // else
         // {
+        //     // std::cout << "3 diff(" << a << ", " << b << ") -> " << Dbg {UT(a)} << " / "  << Dbg {UT(b)} << " / "  << Dbg {UT(UT(~a) + 1U + UT(b))} << std::endl;
         //     r = UT(UT(~a) + 1U + UT(b));
         // }
         // return r;
@@ -327,12 +331,14 @@ namespace
         constexpr T bits = (sizeof (T) * CHAR_BIT) - 1U;
         while (true)
         {
-#define INTERVAL_MAX 0x10000U
+#define INTERVAL_MAX 0x10000
             // T a_low = rand(); T a_high = rand(a_low, (((a_low >= 0) && ((std::numeric_limits<T>::max() - a_low) < INTERVAL_MAX)) ? std::numeric_limits<T>::max() : T(a_low + INTERVAL_MAX)));
             // T b_low = rand(); T b_high = rand(b_low, (((b_low >= 0) && ((std::numeric_limits<T>::max() - b_low) < INTERVAL_MAX)) ? std::numeric_limits<T>::max() : T(b_low + INTERVAL_MAX)));
 
             T a_low, a_high;
             a_low = T(rand());
+            // a_low = std::numeric_limits<T>::max();
+            // a_low = std::numeric_limits<T>::min();
             if (distance(a_low, std::numeric_limits<T>::max()) < INTERVAL_MAX)
             {
                 a_high = rand(a_low, std::numeric_limits<T>::max());
@@ -342,14 +348,15 @@ namespace
                 a_high = rand(a_low, T(a_low + INTERVAL_MAX));
             }
 
-            std::cout << (a_low <= a_high)  << " / " << (distance(a_low, a_high) <= INTERVAL_MAX) << " / " << +distance(a_low, a_high) << " / " << Interval<T> {a_low, a_high} << std::endl;
-            continue;
+            // std::cout << (a_low <= a_high)  << " / " << (distance(a_low, a_high) <= INTERVAL_MAX) << " / " << +distance(a_low, a_high) << " / " << Interval<T> {a_low, a_high} << std::endl;
+            // continue;
 
             // T b_low = a_low, b_high = a_high;
             T b_low = rand(); T b_high = rand(b_low, (distance(b_low, std::numeric_limits<T>::max()) < INTERVAL_MAX) ? std::numeric_limits<T>::max() : T(b_low + INTERVAL_MAX));
 
-            T a_step = (a_low != a_high) ? rand(1, a_high - a_low) : 1U, b_step = (b_low != b_high) ? rand(1, b_high - b_low) : 1U;
-            //T a_step = T(1ULL << rand(0, bits)), b_step = T(1ULL << rand(0, bits));
+            // T a_step = (a_low != a_high) ? rand(1, a_high - a_low) : 1U, b_step = (b_low != b_high) ? rand(1, b_high - b_low) : 1U;
+            T a_step = T(1ULL << rand(0, bits)), b_step = T(1ULL << rand(0, bits));
+            // T a_step = T(1), b_step = T(1);
 
 #if 0
             a_low &= 0xF; a_high &= 0xF;
@@ -367,6 +374,8 @@ namespace
             {
                 break;
             }
+
+            // break;
         }
     }
 }
