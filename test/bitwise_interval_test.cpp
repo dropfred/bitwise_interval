@@ -27,7 +27,8 @@ namespace
     {
         if constexpr (sizeof (T) == 1)
         {
-            os << std::bitset<CHAR_BIT>((unsigned long long)(v.value)) << "(" <<  std::dec << +v.value << ")";
+            os << std::bitset<CHAR_BIT>((unsigned long long)(v.value)) << " (" <<  std::dec << +v.value << ")";
+            // os << std::bitset<CHAR_BIT>((unsigned long long)(v.value)) << " (" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << (v.value & 0xFF) << ")";
         }
         else
         {
@@ -68,6 +69,78 @@ namespace
         }
         return T(std::stoull(str, nullptr, 0));
     }
+
+
+    template <typename T>
+    auto distance(T a, T b)
+    {
+        using UT = std::make_unsigned_t<T>;
+
+        return (a >= 0) ? UT(b - a) :
+               (b <  0) ? UT(UT(a) - UT(b)) :
+               UT(UT(~a) + 1U + UT(b));
+
+        // UT r;
+
+        // if (a >= 0)
+        // {
+        //     r = UT(b - a);
+        // }
+        // else if (b < 0)
+        // {
+        //     r = UT(UT(a) - UT(b));
+        // }
+        // else
+        // {
+        //     r = UT(UT(~a) + 1U + UT(b));
+        // }
+        // return r;
+    }
+
+#ifdef DEV_REPLAY_RAND
+    template <typename T>
+    class Rand
+    {
+    public:
+
+        Rand()
+        {
+            std::srand(0);
+        }
+
+        T operator () ()
+        {
+            return (*this)(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
+        }
+
+        T operator () (T a, T b)
+        {
+            double r = double(std::rand()) / RAND_MAX;
+
+            return T((a * (1.0 - r)) + (b * r));
+        }
+    };
+#else
+    template <typename T>
+    class Rand
+    {
+        using D = std::uniform_int_distribution<std::conditional_t<(sizeof (T) > 1), T, short int>>;
+        
+        std::random_device rd {};
+
+    public:
+
+        T operator () ()
+        {
+            return (*this)(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
+        }
+
+        T operator () (T a, T b)
+        {
+            return T((D {a, b})(rd));
+        }
+    };
+#endif
 
     template <typename T>
     bool test_interval(Interval<T> const x, Interval<T> const y, bool trace = true)
@@ -174,6 +247,13 @@ namespace
             char const ** a = args;
             i.low  = parse<T>(*a++);
             i.high = parse<T>(*a++);
+            
+            // {
+            //     T a = i.low, b = i.high;
+            //     std::cout << a << " / " << b << " / " << (b - a) << " / " << distance(a, b) << std::endl;
+            //     return;
+            // }
+
             if (step) i.step = parse<T>(*a++);
             j.low  = parse<T>(*a++);
             j.high = parse<T>(*a++);
@@ -227,51 +307,6 @@ namespace
         }
     }
 
-#ifdef DEV_REPLAY_RAND
-    template <typename T>
-    class Rand
-    {
-    public:
-
-        Rand()
-        {
-            std::srand(0);
-        }
-
-        T operator () ()
-        {
-            return (*this)(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
-        }
-
-        T operator () (T a, T b)
-        {
-            double r = double(std::rand()) / RAND_MAX;
-
-            return T((a * (1.0 - r)) + (b * r));
-        }
-    };
-#else
-    template <typename T>
-    class Rand
-    {
-        using D = std::uniform_int_distribution<std::conditional_t<(sizeof (T) > 1), T, short int>>;
-        
-        std::random_device rd {};
-
-    public:
-
-        T operator () ()
-        {
-            return (*this)(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
-        }
-
-        T operator () (T a, T b)
-        {
-            return T((D {a, b})(rd));
-        }
-    };
-#endif
-
     template <typename T>
     void test_random()
     {
@@ -292,16 +327,26 @@ namespace
         constexpr T bits = (sizeof (T) * CHAR_BIT) - 1U;
         while (true)
         {
-#define INTERVAL_MAX 0x10000
-            //T dbg_low = T(rand());
-            //auto dbg1 = std::numeric_limits<T>::max() - dbg_low;
-            //auto dbg2 = ((dbg_low >= 0) && ((std::numeric_limits<T>::max() - dbg_low) < INTERVAL_MAX));
-            //auto dbg3 = ((dbg_low >= 0) && ((std::numeric_limits<T>::max() - dbg_low) < INTERVAL_MAX)) ? std::numeric_limits<T>::max() : T(dbg_low + INTERVAL_MAX);
+#define INTERVAL_MAX 0x10000U
+            // T a_low = rand(); T a_high = rand(a_low, (((a_low >= 0) && ((std::numeric_limits<T>::max() - a_low) < INTERVAL_MAX)) ? std::numeric_limits<T>::max() : T(a_low + INTERVAL_MAX)));
+            // T b_low = rand(); T b_high = rand(b_low, (((b_low >= 0) && ((std::numeric_limits<T>::max() - b_low) < INTERVAL_MAX)) ? std::numeric_limits<T>::max() : T(b_low + INTERVAL_MAX)));
 
-            T a_low = T(rand()); T a_high = rand(a_low, (((a_low >= 0) && ((std::numeric_limits<T>::max() - a_low) < INTERVAL_MAX)) ? std::numeric_limits<T>::max() : T(a_low + INTERVAL_MAX)));
-            T b_low = T(rand()); T b_high = rand(b_low, (((b_low >= 0) && ((std::numeric_limits<T>::max() - b_low) < INTERVAL_MAX)) ? std::numeric_limits<T>::max() : T(b_low + INTERVAL_MAX)));
+            T a_low, a_high;
+            a_low = T(rand());
+            if (distance(a_low, std::numeric_limits<T>::max()) < INTERVAL_MAX)
+            {
+                a_high = rand(a_low, std::numeric_limits<T>::max());
+            }
+            else
+            {
+                a_high = rand(a_low, T(a_low + INTERVAL_MAX));
+            }
 
-            //std::cout << "### " << ((a_high - a_low) <= INTERVAL_MAX) << " / " << ((b_high - b_low) <= INTERVAL_MAX) << std::endl;
+            std::cout << (a_low <= a_high)  << " / " << (distance(a_low, a_high) <= INTERVAL_MAX) << " / " << +distance(a_low, a_high) << " / " << Interval<T> {a_low, a_high} << std::endl;
+            continue;
+
+            // T b_low = a_low, b_high = a_high;
+            T b_low = rand(); T b_high = rand(b_low, (distance(b_low, std::numeric_limits<T>::max()) < INTERVAL_MAX) ? std::numeric_limits<T>::max() : T(b_low + INTERVAL_MAX));
 
             T a_step = (a_low != a_high) ? rand(1, a_high - a_low) : 1U, b_step = (b_low != b_high) ? rand(1, b_high - b_low) : 1U;
             //T a_step = T(1ULL << rand(0, bits)), b_step = T(1ULL << rand(0, bits));
@@ -328,6 +373,12 @@ namespace
 
 int main(int argc, char const * argv[])
 {
+    // {
+    //     std::int32_t a = 0xBA611577, b = 0xBA61583C;
+    //     std::cout << a << " / " << b << " / " << (b - a) << " / " << distance(a, b) << std::endl;
+    //     return 0;
+    // }
+
     if (argc == 2)
     {
         static std::map<std::string, std::function<void (void)>> const tfs =
