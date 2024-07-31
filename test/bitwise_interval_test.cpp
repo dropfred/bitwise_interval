@@ -218,7 +218,7 @@ namespace
             if (i == x.high) break;
         }
 
-        bool ok = (c_and >= b_and) && r_and.ok && (c_or >= b_or) && r_or.ok/* && (c_xor >= b_xor) && r_xor.ok*/;
+        bool ok = (c_and >= b_and) && r_and.ok && (c_or >= b_or) && r_or.ok && (c_xor >= b_xor) && r_xor.ok;
 
         if (!ok || trace)
         {
@@ -235,7 +235,7 @@ namespace
             };
             std::cout << ok(c_and, b_and, r_and.ok) << x << " & " << y << " -> " << c_and << " : " << b_and << std::endl;
             std::cout << ok(c_or , b_or , r_or.ok ) << x << " | " << y << " -> " << c_or  << " : " << b_or  << std::endl;
-            // std::cout << ok(c_xor, b_xor, r_xor.ok) << x << " ^ " << y << " -> " << c_xor << " : " << b_xor << std::endl;
+            std::cout << ok(c_xor, b_xor, r_xor.ok) << x << " ^ " << y << " -> " << c_xor << " : " << b_xor << std::endl;
         }
 
         return ok;
@@ -250,14 +250,7 @@ namespace
         {
             char const ** a = args;
             i.low  = parse<T>(*a++);
-            i.high = parse<T>(*a++);
-            
-            // {
-            //     T a = i.low, b = i.high;
-            //     std::cout << a << " / " << b << " / " << (b - a) << " / " << distance(a, b) << std::endl;
-            //     return;
-            // }
-
+            i.high = parse<T>(*a++);            
             if (step) i.step = parse<T>(*a++);
             j.low  = parse<T>(*a++);
             j.high = parse<T>(*a++);
@@ -316,78 +309,54 @@ namespace
     {
         Rand<T> rand {};
 
-        // {
-        //     for (int i = 0; i < 10; ++i)
-        //     {
-        //         std::cout << rand() << std::endl;
-        //     }
-        //     for (int i = 0; i < 10; ++i)
-        //     {
-        //         std::cout << rand(5, 5) << std::endl;
-        //     }
-        //     return;
-        // }
-
         constexpr T bits = (sizeof (T) * CHAR_BIT) - 1U;
         while (true)
         {
 #define INTERVAL_MAX 0x10000
-            // T a_low = rand(); T a_high = rand(a_low, (((a_low >= 0) && ((std::numeric_limits<T>::max() - a_low) < INTERVAL_MAX)) ? std::numeric_limits<T>::max() : T(a_low + INTERVAL_MAX)));
-            // T b_low = rand(); T b_high = rand(b_low, (((b_low >= 0) && ((std::numeric_limits<T>::max() - b_low) < INTERVAL_MAX)) ? std::numeric_limits<T>::max() : T(b_low + INTERVAL_MAX)));
-
-            T a_low, a_high;
-            a_low = T(rand());
-            // a_low = std::numeric_limits<T>::max();
-            // a_low = std::numeric_limits<T>::min();
-            if (distance(a_low, std::numeric_limits<T>::max()) < INTERVAL_MAX)
-            {
-                a_high = rand(a_low, std::numeric_limits<T>::max());
-            }
-            else
-            {
-                a_high = rand(a_low, T(a_low + INTERVAL_MAX));
-            }
-
-            // std::cout << (a_low <= a_high)  << " / " << (distance(a_low, a_high) <= INTERVAL_MAX) << " / " << +distance(a_low, a_high) << " / " << Interval<T> {a_low, a_high} << std::endl;
-            // continue;
-
-            // T b_low = a_low, b_high = a_high;
+            T a_low = rand(); T a_high = rand(a_low, (distance(a_low, std::numeric_limits<T>::max()) < INTERVAL_MAX) ? std::numeric_limits<T>::max() : T(a_low + INTERVAL_MAX));
             T b_low = rand(); T b_high = rand(b_low, (distance(b_low, std::numeric_limits<T>::max()) < INTERVAL_MAX) ? std::numeric_limits<T>::max() : T(b_low + INTERVAL_MAX));
 
-            // T a_step = (a_low != a_high) ? rand(1, a_high - a_low) : 1U, b_step = (b_low != b_high) ? rand(1, b_high - b_low) : 1U;
-            T a_step = T(1ULL << rand(0, bits)), b_step = T(1ULL << rand(0, bits));
             // T a_step = T(1), b_step = T(1);
+            T a_step = T(1ULL << rand(0, bits)), b_step = T(1ULL << rand(0, bits));
+            // T a_step = (a_low != a_high) ? rand(1, a_high - a_low) : 1U, b_step = (b_low != b_high) ? rand(1, b_high - b_low) : 1U;
 
 #if 0
+// OVER [00000101 (5), 00000111 (7)]/2 ^ [00001110 (14), 00001110 (14)] -> [00001000 (8), 00001011 (11)] : [00001001 (9), 00001011 (11)]
+// OVER [00001011 (11), 00001101 (13)]/2 ^ [00000001 (1), 00001001 (9)]/8 -> [00000010 (2), 00001110 (14)]/2 : [00000010 (2), 00001100 (12)]
+// OVER [00000101 (5), 00001001 (9)]/4 ^ [00001000 (8), 00001000 (8)]/2 -> [00000001 (1), 00001111 (15)]/2 : [00000001 (1), 00001101 (13)]
+// OVER [00000110 (6), 00001100 (12)] ^ [00000010 (2), 00001010 (10)]/8 -> [00000000 (0), 00001111 (15)] : [00000000 (0), 00001110 (14)]
+// OVER [00000001 (1), 00001001 (9)]/4 ^ [00001100 (12), 00001101 (13)] -> [00000100 (4), 00001111 (15)] : [00000100 (4), 00001101 (13)]
+// OVER [00000100 (4), 00000100 (4)]/4 ^ [00000000 (0), 00001000 (8)]/8 -> [00000000 (0), 00001100 (12)]/4 : [00000100 (4), 00001100 (12)]
+// OVER [00000111 (7), 00001011 (11)]/4 ^ [00001001 (9), 00001010 (10)] -> [00000000 (0), 00001110 (14)] : [00000001 (1), 00001110 (14)]
+// OVER [00000111 (7), 00000111 (7)]/4 ^ [00000100 (4), 00001100 (12)]/8 -> [00000011 (3), 00001111 (15)]/4 : [00000011 (3), 00001011 (11)]
+// OVER [00000000 (0), 00001000 (8)]/8 ^ [00000100 (4), 00000100 (4)]/4 -> [00000000 (0), 00001100 (12)]/4 : [00000100 (4), 00001100 (12)]
+// OVER [00000101 (5), 00001101 (13)]/8 ^ [00000111 (7), 00000111 (7)]/4 -> [00000010 (2), 00001110 (14)]/4 : [00000010 (2), 00001010 (10)]
+
             a_low &= 0xF; a_high &= 0xF;
             b_low &= 0xF; b_high &= 0xF;
             if (a_low > a_high) std::swap(a_low, a_high);
             if (b_low > b_high) std::swap(b_low, b_high);
-            a_step &= 3; b_step &= 3;
-            // a_step = b_step = 1U;
+            a_step = T(1ULL << rand(0, 3));
+            b_step = T(1ULL << rand(0, 3));
+            a_step = b_step = 1U;
 #endif
 
-            a_high -= (a_high - a_low) % a_step;
-            b_high -= (b_high - b_low) % b_step;
+            a_high -= distance(a_low, a_high) % a_step;
+            b_high -= distance(b_low, b_high) % b_step;
 
             if (!test_interval(Interval<T> {a_low, a_high, a_step}, Interval<T> {b_low, b_high, b_step}, true))
             {
                 break;
             }
-
-            // break;
+#ifdef __TRUSTINSOFT_ANALYZER__
+            break;
+#endif
         }
     }
 }
 
 int main(int argc, char const * argv[])
 {
-    // {
-    //     std::int32_t a = 0xBA611577, b = 0xBA61583C;
-    //     std::cout << a << " / " << b << " / " << (b - a) << " / " << distance(a, b) << std::endl;
-    //     return 0;
-    // }
-
     if (argc == 2)
     {
         static std::map<std::string, std::function<void (void)>> const tfs =
