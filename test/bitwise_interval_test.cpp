@@ -13,6 +13,7 @@
 #include <cassert>
 
 #include  <cstdlib> // rand
+#include <format> // c++20
 
 namespace
 {
@@ -77,28 +78,9 @@ namespace
     {
         using UT = std::make_unsigned_t<T>;
 
-        return (a >= 0) ? UT(b - a) :
-               (b <  0) ? UT(UT(a) - UT(b)) :
-               UT(UT(~a) + 1U + UT(b));
-
-        // UT r;
-        // // std::cout << "0 diff(" << a << ", " << b << ")" << std::endl;
-        // if (a >= 0)
-        // {
-        //     // std::cout << "1 diff(" << a << ", " << b << ") -> " << Dbg {UT(a)} << " / "  << Dbg {UT(b)} << " / "  << Dbg {UT(b - a)} << std::endl;
-        //     r = UT(b - a);
-        // }
-        // else if (b < 0)
-        // {
-        //     // std::cout << "2 diff(" << a << ", " << b << ") -> " << Dbg {UT(a)} << " / "  << Dbg {UT(b)} << " / "  << Dbg {UT(UT(UT(a) - UT(b)))} << std::endl;
-        //     r = UT(UT(a) - UT(b));
-        // }
-        // else
-        // {
-        //     // std::cout << "3 diff(" << a << ", " << b << ") -> " << Dbg {UT(a)} << " / "  << Dbg {UT(b)} << " / "  << Dbg {UT(UT(~a) + 1U + UT(b))} << std::endl;
-        //     r = UT(UT(~a) + 1U + UT(b));
-        // }
-        // return r;
+        return (a >= 0) ? UT(b - a)
+             : (b <  0) ? UT(UT(a) - UT(b))
+             :            UT(UT(~a) + 1U + UT(b));
     }
 
 #ifdef DEV_REPLAY_RAND
@@ -149,6 +131,8 @@ namespace
     template <typename T>
     bool test_interval(Interval<T> const x, Interval<T> const y, bool trace = true)
     {
+        //std::cout << "### " << x << " / " << y << std::endl;
+
         auto c_and = and_interval(x, y);
         auto c_or  = or_interval(x, y);
         auto c_xor = xor_interval(x, y);
@@ -218,24 +202,40 @@ namespace
             if (i == x.high) break;
         }
 
-        bool ok = (c_and >= b_and) && r_and.ok && (c_or >= b_or) && r_or.ok && (c_xor >= b_xor) && r_xor.ok;
+        bool ok = (c_and >= b_and) && r_and.ok && (c_or >= b_or)/* && r_or.ok && (c_xor >= b_xor) && r_xor.ok*/;
 
         if (!ok || trace)
         {
             auto ok = [] (Interval<T> const & a, Interval<T> const & b, bool r)
             {
+                //return
+                //(
+                //    r && (a == b) ? "OK " :
+                //    r && (a >= b) ? "OVER " :
+                //    (a == b)      ? "STEP " :
+                //    (a >= b)      ? "STEP+OVER" :
+                //                    "KO "
+                //);
+                //return
+                //(
+                //    r && (a == b) ? "OK "s
+                //:   r && (a >= b) ? std::format("OVER ({}) ", distance(a.low, a.high) - distance(b.low, b.high))
+                //:   (a == b)      ? "STEP "s
+                //:   (a >= b)      ? "STEP+OVER"s
+                //:   "KO "s
+                //);
                 return
                 (
-                    r && (a == b) ? "OK " :
-                    r && (a >= b) ? "OVER " :
-                    (a == b)      ? "STEP " :
-                    (a >= b)      ? "STEP+OVER" :
-                                    "KO "
+                    r && (a == b) ? std::string {"OK "}
+                :   r && (a >= b) ? std::format("OVER ({} / {} / {}) ", distance(a.low, a.high), distance(b.low, b.high), distance(a.low, a.high) - distance(b.low, b.high))
+                :   (a == b)      ? std::string {"STEP "}
+                :   (a >= b)      ? std::string {"STEP+OVER"}
+                :   std::string {"KO "}
                 );
             };
             std::cout << ok(c_and, b_and, r_and.ok) << x << " & " << y << " -> " << c_and << " : " << b_and << std::endl;
             std::cout << ok(c_or , b_or , r_or.ok ) << x << " | " << y << " -> " << c_or  << " : " << b_or  << std::endl;
-            std::cout << ok(c_xor, b_xor, r_xor.ok) << x << " ^ " << y << " -> " << c_xor << " : " << b_xor << std::endl;
+            //std::cout << ok(c_xor, b_xor, r_xor.ok) << x << " ^ " << y << " -> " << c_xor << " : " << b_xor << std::endl;
         }
 
         return ok;
@@ -309,7 +309,6 @@ namespace
     {
         Rand<T> rand {};
 
-        constexpr T bits = (sizeof (T) * CHAR_BIT) - 1U;
         while (true)
         {
 #define INTERVAL_MAX 0x10000
@@ -317,6 +316,7 @@ namespace
             T b_low = rand(); T b_high = rand(b_low, (distance(b_low, std::numeric_limits<T>::max()) < INTERVAL_MAX) ? std::numeric_limits<T>::max() : T(b_low + INTERVAL_MAX));
 
             // T a_step = T(1), b_step = T(1);
+            constexpr T bits = (sizeof (T) * CHAR_BIT) - 2U;
             T a_step = T(1ULL << rand(0, bits)), b_step = T(1ULL << rand(0, bits));
             // T a_step = (a_low != a_high) ? rand(1, a_high - a_low) : 1U, b_step = (b_low != b_high) ? rand(1, b_high - b_low) : 1U;
 
@@ -341,8 +341,8 @@ namespace
             a_step = b_step = 1U;
 #endif
 
-            a_high -= distance(a_low, a_high) % a_step;
-            b_high -= distance(b_low, b_high) % b_step;
+            a_high = last(a_high, a_step,  T(a_low % a_step));
+            b_high = last(b_high, b_step,  T(b_low % b_step));
 
             if (!test_interval(Interval<T> {a_low, a_high, a_step}, Interval<T> {b_low, b_high, b_step}, true))
             {

@@ -69,9 +69,9 @@ T last(T v, T step, T rem)
 template <typename T>
 Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
 {
-    constexpr T zero = 0U;
-    constexpr T one  = 1U;
-    constexpr T msb  = one << (sizeof (T) * CHAR_BIT - 1U);
+    constexpr T zero = T(0);
+    constexpr T one  = T(1);
+    constexpr T msb  = T(one << (sizeof (T) * CHAR_BIT - 1U));
 
     if constexpr (std::is_signed_v<T>)
     {
@@ -274,9 +274,9 @@ Interval<T> or_interval(Interval<T> const & x, Interval<T> const & y)
 template <typename T>
 Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
 {
-    constexpr T zero = 0U;
-    constexpr T one  = 1U;
-    constexpr T msb  = one << (sizeof (T) * CHAR_BIT - 1U);
+    constexpr T zero = T(0);
+    constexpr T one  = T(1);
+    constexpr T msb  = T(one << (sizeof (T) * CHAR_BIT - 1U));
 
     if constexpr (std::is_signed_v<T>)
     {
