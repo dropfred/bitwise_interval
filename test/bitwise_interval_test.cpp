@@ -13,7 +13,7 @@
 #include <cassert>
 
 #include  <cstdlib> // rand
-#include <format> // c++20
+// #include <format> // c++20
 
 namespace
 {
@@ -202,7 +202,7 @@ namespace
             if (i == x.high) break;
         }
 
-        bool ok = (c_and >= b_and) && r_and.ok && (c_or >= b_or)/* && r_or.ok && (c_xor >= b_xor) && r_xor.ok*/;
+        bool ok = (c_and >= b_and) && r_and.ok && (c_or >= b_or) && r_or.ok && (c_xor >= b_xor) && r_xor.ok;
 
         if (!ok || trace)
         {
@@ -216,26 +216,28 @@ namespace
                 //    (a >= b)      ? "STEP+OVER" :
                 //                    "KO "
                 //);
-                //return
-                //(
-                //    r && (a == b) ? "OK "s
-                //:   r && (a >= b) ? std::format("OVER ({}) ", distance(a.low, a.high) - distance(b.low, b.high))
-                //:   (a == b)      ? "STEP "s
-                //:   (a >= b)      ? "STEP+OVER"s
-                //:   "KO "s
-                //);
+                using namespace std::string_literals;
                 return
                 (
-                    r && (a == b) ? std::string {"OK "}
-                :   r && (a >= b) ? std::format("OVER ({} / {} / {}) ", distance(a.low, a.high), distance(b.low, b.high), distance(a.low, a.high) - distance(b.low, b.high))
-                :   (a == b)      ? std::string {"STEP "}
-                :   (a >= b)      ? std::string {"STEP+OVER"}
-                :   std::string {"KO "}
+                   r && (a == b) ? "OK "s
+                // :   r && (a >= b) ? "OVER "s + std::to_string(distance(a.low, a.high)) + " / " + std::to_string(distance(b.low, b.high)) + " / " + std::to_string(distance(a.low, a.high) - distance(b.low, b.high)) + " "
+                :   r && (a >= b) ? "OVER ("s + std::to_string(distance(a.low, a.high) - distance(b.low, b.high)) + ") "
+                :   (a == b)      ? "STEP "s
+                :   (a >= b)      ? "STEP+OVER "s
+                :   "KO "s
                 );
+                // return
+                // (
+                //     r && (a == b) ? std::string {"OK "}
+                // :   r && (a >= b) ? std::format("OVER ({} / {} / {}) ", distance(a.low, a.high), distance(b.low, b.high), distance(a.low, a.high) - distance(b.low, b.high))
+                // :   (a == b)      ? std::string {"STEP "}
+                // :   (a >= b)      ? std::string {"STEP+OVER"}
+                // :   std::string {"KO "}
+                // );
             };
             std::cout << ok(c_and, b_and, r_and.ok) << x << " & " << y << " -> " << c_and << " : " << b_and << std::endl;
             std::cout << ok(c_or , b_or , r_or.ok ) << x << " | " << y << " -> " << c_or  << " : " << b_or  << std::endl;
-            //std::cout << ok(c_xor, b_xor, r_xor.ok) << x << " ^ " << y << " -> " << c_xor << " : " << b_xor << std::endl;
+            std::cout << ok(c_xor, b_xor, r_xor.ok) << x << " ^ " << y << " -> " << c_xor << " : " << b_xor << std::endl;
         }
 
         return ok;
@@ -321,17 +323,6 @@ namespace
             // T a_step = (a_low != a_high) ? rand(1, a_high - a_low) : 1U, b_step = (b_low != b_high) ? rand(1, b_high - b_low) : 1U;
 
 #if 0
-// OVER [00000101 (5), 00000111 (7)]/2 ^ [00001110 (14), 00001110 (14)] -> [00001000 (8), 00001011 (11)] : [00001001 (9), 00001011 (11)]
-// OVER [00001011 (11), 00001101 (13)]/2 ^ [00000001 (1), 00001001 (9)]/8 -> [00000010 (2), 00001110 (14)]/2 : [00000010 (2), 00001100 (12)]
-// OVER [00000101 (5), 00001001 (9)]/4 ^ [00001000 (8), 00001000 (8)]/2 -> [00000001 (1), 00001111 (15)]/2 : [00000001 (1), 00001101 (13)]
-// OVER [00000110 (6), 00001100 (12)] ^ [00000010 (2), 00001010 (10)]/8 -> [00000000 (0), 00001111 (15)] : [00000000 (0), 00001110 (14)]
-// OVER [00000001 (1), 00001001 (9)]/4 ^ [00001100 (12), 00001101 (13)] -> [00000100 (4), 00001111 (15)] : [00000100 (4), 00001101 (13)]
-// OVER [00000100 (4), 00000100 (4)]/4 ^ [00000000 (0), 00001000 (8)]/8 -> [00000000 (0), 00001100 (12)]/4 : [00000100 (4), 00001100 (12)]
-// OVER [00000111 (7), 00001011 (11)]/4 ^ [00001001 (9), 00001010 (10)] -> [00000000 (0), 00001110 (14)] : [00000001 (1), 00001110 (14)]
-// OVER [00000111 (7), 00000111 (7)]/4 ^ [00000100 (4), 00001100 (12)]/8 -> [00000011 (3), 00001111 (15)]/4 : [00000011 (3), 00001011 (11)]
-// OVER [00000000 (0), 00001000 (8)]/8 ^ [00000100 (4), 00000100 (4)]/4 -> [00000000 (0), 00001100 (12)]/4 : [00000100 (4), 00001100 (12)]
-// OVER [00000101 (5), 00001101 (13)]/8 ^ [00000111 (7), 00000111 (7)]/4 -> [00000010 (2), 00001110 (14)]/4 : [00000010 (2), 00001010 (10)]
-
             a_low &= 0xF; a_high &= 0xF;
             b_low &= 0xF; b_high &= 0xF;
             if (a_low > a_high) std::swap(a_low, a_high);
