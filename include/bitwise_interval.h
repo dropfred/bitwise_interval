@@ -37,33 +37,63 @@ auto and_interval(Interval<X> const & x, Interval<Y> const & y)
 }
 
 template <typename T>
+T mod(T a, T n)
+{
+    auto m = a % n;
+    if constexpr (std::is_signed_v<T>)
+    {
+        if (m < 0)
+        {
+            m += n;
+        }
+    }
+    return T(m);
+}
+
+template <typename T>
 T first(T v, T step, T rem)
 {
-    T r = v % step;
-    if (r <= rem)
+    if constexpr (std::is_signed_v<T>)
     {
-        v += rem - r;
+        using UT = std::make_unsigned_t<T>;
+        return T(first(UT(v), UT(step), UT(rem)));
     }
     else
     {
-        v += step - (r - rem);
+        T r = v % step;
+        if (r <= rem)
+        {
+            v += rem - r;
+        }
+        else
+        {
+            v += step - (r - rem);
+        }
+        return v;
     }
-    return v;
 }
 
 template <typename T>
 T last(T v, T step, T rem)
 {
-    T r = v % step;
-    if (r >= rem)
+    if constexpr (std::is_signed_v<T>)
     {
-        v -= (r - rem);
+        using UT = std::make_unsigned_t<T>;
+        return T(last(UT(v), UT(step), UT(rem)));
     }
     else
     {
-        v = (v - step) + (rem - r);
+        T r = v % step;
+        if (r >= rem)
+        {
+            v -= (r - rem);
+        }
+        else
+        {
+            v = (v - step) + (rem - r);
+        }
+        return v;
     }
-    return v;
 }
 
 template <typename T>
