@@ -358,8 +358,8 @@ namespace
             b_high = last(b_high, b_step,  b_rem);
             assert(a_low == first(a_low, a_step, a_rem));
             assert(b_low == first(b_low, b_step, b_rem));
-            assert(T(a_high % a_step) == a_rem);
-            assert(T(b_high % b_step) == b_rem);
+            assert(mod(a_high, a_step) == a_rem);
+            assert(mod(b_high, b_step) == b_rem);
 
             if (!test_interval(Interval<T> {a_low, a_high, a_step}, Interval<T> {b_low, b_high, b_step}, true))
             {
@@ -374,6 +374,22 @@ namespace
 
 int main(int argc, char const * argv[])
 {
+    assert(first(0, 3, 1) == 1);
+    assert(first(1, 3, 1) == 1);
+    assert(first(2, 3, 1) == 4);
+
+    assert(first(-3, 3, 1) == -2);
+    assert(first(-2, 3, 1) == -2);
+    assert(first(-1, 3, 1) == 1);
+
+    assert(last(6, 3, 1) == 4);
+    assert(last(7, 3, 1) == 7);
+    assert(last(8, 3, 1) == 7);
+
+    assert(last(-1, 3, 1) == -2);
+    assert(last(-2, 3, 1) == -2);
+    assert(last(-3, 3, 1) == -5);
+
     if (argc == 2)
     {
         static std::map<std::string, std::function<void (void)>> const tfs =

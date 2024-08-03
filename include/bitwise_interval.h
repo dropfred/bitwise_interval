@@ -53,47 +53,33 @@ T mod(T a, T n)
 template <typename T>
 T first(T v, T step, T rem)
 {
-    if constexpr (std::is_signed_v<T>)
+    T r = mod(v, step);
+    if (r <= rem)
     {
-        using UT = std::make_unsigned_t<T>;
-        return T(first(UT(v), UT(step), UT(rem)));
+        v += rem - r;
     }
     else
     {
-        T r = v % step;
-        if (r <= rem)
-        {
-            v += rem - r;
-        }
-        else
-        {
-            v += step - (r - rem);
-        }
-        return v;
+        // v = (v + step) - (r - rem);
+        v += step - (r - rem);
     }
+    return v;
 }
 
 template <typename T>
 T last(T v, T step, T rem)
 {
-    if constexpr (std::is_signed_v<T>)
+    T r = mod(v, step);
+    if (r >= rem)
     {
-        using UT = std::make_unsigned_t<T>;
-        return T(last(UT(v), UT(step), UT(rem)));
+        v -= (r - rem);
     }
     else
     {
-        T r = v % step;
-        if (r >= rem)
-        {
-            v -= (r - rem);
-        }
-        else
-        {
-            v = (v - step) + (rem - r);
-        }
-        return v;
+        // v = (v - step) + (rem - r);
+        v -= (step + r) - rem;
     }
+    return v;
 }
 
 template <typename T>
@@ -101,7 +87,6 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
 {
     constexpr T zero = T(0);
     constexpr T one  = T(1);
-    constexpr T msb  = T(one << (sizeof (T) * CHAR_BIT - 1U));
 
     if constexpr (std::is_signed_v<T>)
     {
@@ -133,17 +118,29 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
             else if (y.high < zero)
             {
                 // TODO: step
-                auto n = and_interval(UI {UT(x.low), UT(-one)}, UI {UT(y.low), UT(y.high)});
-                auto p = and_interval(UI {UT(zero), UT(x.high)}, UI {UT(y.low), UT(y.high)});
+                //auto n = and_interval(UI {UT(x.low), UT(-one)}, UI {UT(y.low), UT(y.high)});
+                //auto p = and_interval(UI {UT(zero), UT(x.high)}, UI {UT(y.low), UT(y.high)});
+                T last_x  = last(T(-one), x.step, mod(x.low, x.step));
+                T first_x = first(zero, x.step, mod(x.low, x.step));
+                auto n = and_interval(UI {UT(x.low), UT(last_x), UT(x.step)}, UI {UT(y.low), UT(y.high), UT(y.step)});
+                auto p = and_interval(UI {UT(first_x), UT(x.high), UT(x.step)}, UI {UT(y.low), UT(y.high), UT(y.step)});
                 return {T(n.low), T(p.high)};
             }
             else
             {
                 // TODO: step
-                auto n = and_interval(UI {UT(x.low), UT(-one)}, UI {UT(y.low), UT(-one)});
-                auto p1 = and_interval(UI {UT(x.low), UT(-one)}, UI {UT(zero), UT(y.high)});
-                auto p2 = and_interval(UI {UT(zero), UT(x.high)}, UI {UT(y.low), UT(-one)});
-                auto p3 = and_interval(UI {UT(zero), UT(x.high)}, UI {UT(zero), UT(y.high)});
+                //auto n  = and_interval(UI {UT(x.low), UT(-one)}, UI {UT(y.low), UT(-one)});
+                //auto p1 = and_interval(UI {UT(x.low), UT(-one)}, UI {UT(zero), UT(y.high)});
+                //auto p2 = and_interval(UI {UT(zero), UT(x.high)}, UI {UT(y.low), UT(-one)});
+                //auto p3 = and_interval(UI {UT(zero), UT(x.high)}, UI {UT(zero), UT(y.high)});
+                T last_x  = last(T(-one), x.step, mod(x.low, x.step));
+                T first_x = first(zero, x.step, mod(x.low, x.step));
+                T last_y  = last(T(-one), y.step, mod(y.low, y.step));
+                T first_y = first(zero, y.step, mod(y.low, y.step));
+                auto n  = and_interval(UI {UT(x.low), UT(last_x), UT(x.step)}, UI {UT(y.low), UT(last_y), UT(y.step)});
+                auto p1 = and_interval(UI {UT(x.low), UT(last_x), UT(x.step)}, UI {UT(first_y), UT(y.high), UT(y.step)});
+                auto p2 = and_interval(UI {UT(first_x), UT(x.high), UT(x.step)}, UI {UT(y.low), UT(last_y), UT(y.step)});
+                auto p3 = and_interval(UI {UT(first_x), UT(x.high), UT(x.step)}, UI {UT(first_y), UT(y.high), UT(y.step)});
                 return
                 {
                     T(n.low),
@@ -154,9 +151,7 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
     }
     else
     {
-        // constexpr T zero = 0U;
-        // constexpr T one  = 1U;
-        // constexpr T msb  = one << (sizeof (T) * CHAR_BIT - 1U);
+        constexpr T msb  = one << (sizeof (T) * CHAR_BIT - 1U);
 
         T low  = zero;
         T high = zero;
