@@ -4,8 +4,10 @@
 #include <type_traits>
 #include <climits>
 #include <algorithm>
+#include <numeric>
 // #include <bit>
 // #include <concepts>
+#include <cassert>
 
 // template <std::integral T>
 template <typename T>
@@ -14,12 +16,13 @@ struct Interval
     T low, high;
     T step;
 
-    Interval(T low, T high, T step = T(1)) : low(low), high(high), step(step) {}
+    template <typename X>
+    Interval(X low, X high, X step = X(1)) : low(T(low)), high(T(high)), step(T(step)) {}
 
     Interval() : Interval(T(0), T(0)) {}
 
     template <typename X>
-    Interval(Interval<X> const & i) : Interval(T(i.low), T(i.high), T(i.step)) {}
+    Interval(Interval<X> const & i) : Interval(i.low, i.high, i.step) {}
 };
 
 template <typename T>
@@ -96,12 +99,7 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
         {
             if ((y.high < zero) || (y.low >= zero))
             {
-                auto r = and_interval
-                (
-                    UI {UT(x.low), UT(x.high), UT(x.step)},
-                    UI {UT(y.low), UT(y.high), UT(y.step)}
-                );
-                return {T(r.low), T(r.high), T(r.step)};
+                return and_interval(UI {x}, UI {y});
             }
             else
             {
@@ -110,42 +108,37 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
         }
         else
         {
+            // TODO: step
             if (y.low >= 0)
             {
-                // TODO: step
-                return {T(0), y.high};
+                UI nx {x.low, last(T(-one), x.step, mod(x.low, x.step)), x.step};
+                UI px {first(zero, x.step, mod(x.low, x.step)), x.high, x.step};
+                UI n = and_interval(nx, UI {y});
+                UI p = and_interval(px, UI {y});
+                assert(n.step == p.step);
+                return {std::min(n.low, p.low), std::max(n.high, p.high), n.step};
             }
             else if (y.high < zero)
             {
-                // TODO: step
-                //auto n = and_interval(UI {UT(x.low), UT(-one)}, UI {UT(y.low), UT(y.high)});
-                //auto p = and_interval(UI {UT(zero), UT(x.high)}, UI {UT(y.low), UT(y.high)});
                 T last_x  = last(T(-one), x.step, mod(x.low, x.step));
                 T first_x = first(zero, x.step, mod(x.low, x.step));
-                auto n = and_interval(UI {UT(x.low), UT(last_x), UT(x.step)}, UI {UT(y.low), UT(y.high), UT(y.step)});
-                auto p = and_interval(UI {UT(first_x), UT(x.high), UT(x.step)}, UI {UT(y.low), UT(y.high), UT(y.step)});
-                return {T(n.low), T(p.high)};
+                auto n = and_interval(UI {x.low, last_x, x.step}, UI {y.low, y.high, y.step});
+                auto p = and_interval(UI {first_x, x.high, x.step}, UI {y.low, y.high, y.step});
+                assert(n.step == p.step);
+                return {n.low, p.high, n.step};
             }
             else
             {
-                // TODO: step
-                //auto n  = and_interval(UI {UT(x.low), UT(-one)}, UI {UT(y.low), UT(-one)});
-                //auto p1 = and_interval(UI {UT(x.low), UT(-one)}, UI {UT(zero), UT(y.high)});
-                //auto p2 = and_interval(UI {UT(zero), UT(x.high)}, UI {UT(y.low), UT(-one)});
-                //auto p3 = and_interval(UI {UT(zero), UT(x.high)}, UI {UT(zero), UT(y.high)});
                 T last_x  = last(T(-one), x.step, mod(x.low, x.step));
                 T first_x = first(zero, x.step, mod(x.low, x.step));
                 T last_y  = last(T(-one), y.step, mod(y.low, y.step));
                 T first_y = first(zero, y.step, mod(y.low, y.step));
-                auto n  = and_interval(UI {UT(x.low), UT(last_x), UT(x.step)}, UI {UT(y.low), UT(last_y), UT(y.step)});
-                auto p1 = and_interval(UI {UT(x.low), UT(last_x), UT(x.step)}, UI {UT(first_y), UT(y.high), UT(y.step)});
-                auto p2 = and_interval(UI {UT(first_x), UT(x.high), UT(x.step)}, UI {UT(y.low), UT(last_y), UT(y.step)});
-                auto p3 = and_interval(UI {UT(first_x), UT(x.high), UT(x.step)}, UI {UT(first_y), UT(y.high), UT(y.step)});
-                return
-                {
-                    T(n.low),
-                    T(std::max({p1.high, p2.high, p3.high}))
-                };
+                auto n  = and_interval(UI {x.low, last_x, x.step}, UI {y.low, last_y, y.step});
+                auto p1 = and_interval(UI {x.low, last_x, x.step}, UI {first_y, y.high, y.step});
+                auto p2 = and_interval(UI {first_x, x.high, x.step}, UI {y.low, last_y, y.step});
+                auto p3 = and_interval(UI {first_x, x.high, x.step}, UI {first_y, y.high, y.step});
+                assert((n.step == p1.step) && (n.step == p2.step) && (n.step == p3.step));
+                return {n.low, std::max({p1.high, p2.high, p3.high}), n.step};
             }
         }
     }

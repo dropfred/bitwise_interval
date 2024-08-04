@@ -15,6 +15,8 @@
 #include  <cstdlib> // rand
 // #include <format> // c++20
 
+#define DEV_REPLAY_RAND
+
 namespace
 {
     template <typename T> struct Dbg
@@ -141,7 +143,7 @@ namespace
         {
             T rem;
             bool ok = true;
-        } r_and {T(c_and.low % c_and.step)}, r_or {T(c_or.low % c_or.step)}, r_xor {T(c_xor.low % c_xor.step)};
+        } r_and {mod(c_and.low, c_and.step)}, r_or {mod(c_or.low, c_or.step)}, r_xor {mod(c_xor.low, c_xor.step)};
 
         Interval<T> b_and, b_or, b_xor;
 
@@ -163,7 +165,7 @@ namespace
                 {
                     b_and.high = r;
                 }
-                if ((r % c_and.step) != r_and.rem)
+                if (mod(r,c_and.step) != r_and.rem)
                 {
                     r_and.ok = false;
                 }
@@ -177,7 +179,7 @@ namespace
                 {
                     b_or.high = r;
                 }
-                if ((r % c_or.step) != r_or.rem)
+                if (mod(r,c_or.step) != r_or.rem)
                 {
                     r_or.ok = false;
                 }
@@ -191,7 +193,7 @@ namespace
                 {
                     b_xor.high = r;
                 }
-                if ((r % c_xor.step) != r_xor.rem)
+                if (mod(r,c_xor.step) != r_xor.rem)
                 {
                     r_xor.ok = false;
                 }
@@ -319,8 +321,8 @@ namespace
 
             // T a_step = T(1), b_step = T(1);
             constexpr T bits = (sizeof (T) * CHAR_BIT) - 2U;
-            T a_step = T(1ULL << rand(0, bits)), b_step = T(1ULL << rand(0, bits));
-            // T a_step = (a_low != a_high) ? rand(1, a_high - a_low) : 1U, b_step = (b_low != b_high) ? rand(1, b_high - b_low) : 1U;
+            // T a_step = T(1ULL << rand(0, bits)), b_step = T(1ULL << rand(0, bits));
+            T a_step = (a_low != a_high) ? rand(1, distance(a_low, a_high)) : 1U, b_step = (b_low != b_high) ? distance(b_low, b_high) : 1U;
 
 #if 0
             a_low &= 0xF; a_high &= 0xF;
@@ -340,22 +342,10 @@ namespace
 // "[0..10] * 3 + 2  -> [2..32],2%3
 // "[0..10] * 3 - 2" -> [-2..28],1%3
 
-            T a_rem = T(a_low % a_step);
-            T b_rem = T(b_low % b_step);
-            if constexpr (std::is_signed_v<T>)
-            {
-                if (a_rem < 0)
-                {
-                    a_rem += a_step;
-                }
-                if (b_rem < 0)
-                {
-                    b_rem += b_step;
-                }
-            }
-
-            a_high = last(a_high, a_step,  a_rem);
-            b_high = last(b_high, b_step,  b_rem);
+            T a_rem = mod(a_low, a_step);
+            T b_rem = mod(b_low, b_step);
+            a_high = last(a_high, a_step, a_rem);
+            b_high = last(b_high, b_step, b_rem);
             assert(a_low == first(a_low, a_step, a_rem));
             assert(b_low == first(b_low, b_step, b_rem));
             assert(mod(a_high, a_step) == a_rem);
