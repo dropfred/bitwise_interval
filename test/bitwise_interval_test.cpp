@@ -11,6 +11,8 @@
 #include <random>
 #include <limits>
 #include <cassert>
+#include <set>
+#include <numeric>
 
 #include  <cstdlib> // rand
 // #include <format> // c++20
@@ -203,7 +205,6 @@ namespace
             if (j == y.high) break;
         }
 
-
         auto c_and = and_interval(x, y);
         auto c_or  = or_interval(x, y);
         auto c_xor = xor_interval(x, y);
@@ -219,6 +220,50 @@ namespace
         b_and.low  = b_or.low  = b_xor.low  = std::numeric_limits<T>::max();
         b_and.high = b_or.high = b_xor.high = std::numeric_limits<T>::min();
 
+        struct
+        {
+            std::set<T> s_and, s_or, s_xor;
+
+            void add_and(T v)
+            {
+                if constexpr (sizeof (T) > 1)
+                {
+                    s_and.insert(v);
+                }
+            }
+
+            void add_or(T v)
+            {
+                if constexpr (sizeof (T) > 1)
+                {
+                    s_or.insert(v);
+                }
+            }
+
+            void add_xor(T v)
+            {
+                if constexpr (sizeof (T) > 1)
+                {
+                    s_xor.insert(v);
+                }
+            }
+
+            std::size_t get_and_step() const
+            {
+                std::size_t s = 1;
+                if (s_and.size() > 1)
+                {
+                    auto v0 = s_and.begin();
+                    auto v1 = ++v0;
+                    s = *v1 - *v0;
+                    //for (auto v1 = ++v0, ve = s_and.end(); v1 != ve; ++v1)
+                    {
+                    }
+                }
+                return s;
+            }
+        } step {};
+
         for (T i = x.low; ; i += x.step)
         {
             for (T j = y.low; ; j += y.step)
@@ -226,6 +271,8 @@ namespace
                 T r;
 
                 r = i & j;
+                step.add_and(r);
+                (void)step.get_and_step();
                 if (r < b_and.low)
                 {
                     b_and.low = r;
@@ -533,6 +580,7 @@ int main(int argc, char const * argv[])
         else break;
     }
 
+    // keep static analysis happy
     if (*args == nullptr)
     {
         return usage(argv[0]);
