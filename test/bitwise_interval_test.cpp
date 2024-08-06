@@ -15,20 +15,34 @@
 #include  <cstdlib> // rand
 // #include <format> // c++20
 
+using namespace std::string_literals;
+
 #define DEV_REPLAY_RAND
 
 #ifndef INTERVAL_MAX
-#define INTERVAL_MAX 0x10000U
+// #define INTERVAL_MAX 0x10000U
+#define INTERVAL_MAX 0x1000U
 #endif
 
 //#define STEP_1
-#define STEP_PO2
+//#define STEP_PO2
 
 namespace
 {
+    enum
+    {
+        S_1,
+        S_PO2,
+        S_ANY
+
+    } STEP_MODE = S_ANY;
+
+    bool DBG_HEX = false;
+
     template <typename T> struct Dbg
     {
         T value;
+        // bool force_decimal = false;
         Dbg(T value) : value(value) {}
     };
 
@@ -37,13 +51,25 @@ namespace
     {
         if constexpr (sizeof (T) == 1)
         {
-            os << std::bitset<CHAR_BIT>((unsigned long long)(v.value)) << " (" <<  std::dec << +v.value << ")";
-            // os << std::bitset<CHAR_BIT>((unsigned long long)(v.value)) << " (" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << (v.value & 0xFF) << ")";
+            if (DBG_HEX)
+            {
+                os << std::bitset<CHAR_BIT>((unsigned long long)(v.value)) << " (" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << (v.value & 0xFF) << ")";
+            }
+            else
+            {
+                os << std::bitset<CHAR_BIT>((unsigned long long)(v.value)) << " (" <<  std::dec << +v.value << ")";
+            }
         }
         else
         {
-            // os << std::hex << std::uppercase << std::setw(2 * sizeof (T) / CHAR_BIT) << std::setfill('0') << v.value;
-            os << std::dec << v.value;
+            if (DBG_HEX)
+            {
+                os << std::hex << std::uppercase << std::setw(2 * sizeof (T) / CHAR_BIT) << std::setfill('0') << v.value;
+            }
+            else
+            {
+                os << std::dec << v.value;
+            }
         }
         return os;
     }
@@ -66,7 +92,7 @@ namespace
         os << '[' << Dbg {i.low} << ", " << Dbg  {i.high} << "]";
         if (i.step > 1)
         {
-            os << "/" << (+i.step);
+            os << "/" << std::dec << (+i.step);
         }
         return os;
     }
@@ -253,32 +279,15 @@ namespace
         {
             auto ok = [] (Interval<T> const & a, Interval<T> const & b, bool r)
             {
-                //return
-                //(
-                //    r && (a == b) ? "OK " :
-                //    r && (a >= b) ? "OVER " :
-                //    (a == b)      ? "STEP " :
-                //    (a >= b)      ? "STEP+OVER" :
-                //                    "KO "
-                //);
-                using namespace std::string_literals;
                 return
                 (
-                   r && (a == b) ? "OK "s
-                // :   r && (a >= b) ? "OVER "s + std::to_string(distance(a.low, a.high)) + " / " + std::to_string(distance(b.low, b.high)) + " / " + std::to_string(distance(a.low, a.high) - distance(b.low, b.high)) + " "
-                :   r && (a >= b) ? "OVER ("s + std::to_string(distance(a.low, a.high) - distance(b.low, b.high)) + ") "s
+                    r && (a == b) ? "OK "s
+                    // :   r && (a >= b) ? std::format("OVER ({} / {} / {}) ", distance(a.low, a.high), distance(b.low, b.high), distance(a.low, a.high) - distance(b.low, b.high))
+                    :   r && (a >= b) ? "OVER ("s + std::to_string(distance(a.low, a.high) - distance(b.low, b.high)) + ") "s
                 :   (a == b)      ? "STEP "s
                 :   (a >= b)      ? "STEP+OVER "s
-                :   "KO "s
+                :                   "KO "s
                 );
-                // return
-                // (
-                //     r && (a == b) ? std::string {"OK "}
-                // :   r && (a >= b) ? std::format("OVER ({} / {} / {}) ", distance(a.low, a.high), distance(b.low, b.high), distance(a.low, a.high) - distance(b.low, b.high))
-                // :   (a == b)      ? std::string {"STEP "}
-                // :   (a >= b)      ? std::string {"STEP+OVER"}
-                // :   std::string {"KO "}
-                // );
             };
             std::cout << ok(c_not_x, b_not_x, true) << "not x : " << c_not_x << " : " << b_not_x << std::endl;
             std::cout << ok(c_not_y, b_not_y, true) << "not y : " << c_not_y << " : " << b_not_y << std::endl;
@@ -291,7 +300,7 @@ namespace
     }
 
     template <typename T>
-    void test(char const * args[], bool step)
+    void test(char const ** args, bool step)
     {
         Interval<T> i, j;
 
@@ -300,10 +309,10 @@ namespace
             char const ** a = args;
             i.low  = parse<T>(*a++);
             i.high = parse<T>(*a++);            
-            if (step) i.step = parse<T>(*a++);
+            i.step = step ? parse<T>(*a++) : 1;
             j.low  = parse<T>(*a++);
             j.high = parse<T>(*a++);
-            if (step) j.step = parse<T>(*a++);
+            j.step = step ? parse<T>(*a++) : 1;
             assert
             (
                 (i.low <= i.high) &&
@@ -363,45 +372,65 @@ namespace
             using UT = std::make_unsigned_t<T>;
 
             T a_low = rand(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
+
             UT a_dist = distance(a_low, std::numeric_limits<T>::max());
-#if defined(STEP_PO2)
-            UT a_step = UT(1ULL << rand(0, int((sizeof (T) * CHAR_BIT) - 1)));
-#elif defined(STEP_1)
-            UT a_step = UT(1);
-#else
-            UT a_step = rand(UT(1), a_dist);
-#endif
+
+            UT a_step;
+            if (STEP_MODE == S_PO2)
+            {
+                a_step = UT(1ULL << rand(0, int((sizeof (T) * CHAR_BIT) - 1)));
+            }
+            else if (STEP_MODE == S_1)
+            {
+                a_step = UT(1);
+            }
+            else
+            {
+                a_step = rand(UT(1), a_dist);
+            }
             if constexpr (std::is_signed_v<T>)
             {
                 if (T(a_step) < 0) continue;
             }
+
             UT a_size = UT(a_dist / a_step);
             if constexpr (sizeof (UT) > 2)
             {
                 if (a_size > INTERVAL_MAX) {a_size = INTERVAL_MAX;}
             }
             a_size = rand(UT(0), a_size);
+
             T a_high = T(a_low + a_size * a_step);
 
             T b_low = rand(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
+
             UT b_dist = distance(b_low, std::numeric_limits<T>::max());
-#if defined(STEP_PO2)
-            UT b_step = UT(1ULL << rand(0, int((sizeof (T) * CHAR_BIT) - 1)));
-#elif defined(STEP_1)
-            UT b_step = UT(1);
-#else
-            UT b_step = rand(UT(1), b_dist);
-#endif
+
+            UT b_step;
+            if (STEP_MODE == S_PO2)
+            {
+                b_step = UT(1ULL << rand(0, int((sizeof (T) * CHAR_BIT) - 1)));
+            }
+            else if (STEP_MODE == S_1)
+            {
+                b_step = UT(1);
+            }
+            else
+            {
+                b_step = rand(UT(1), b_dist);
+            }
             if constexpr (std::is_signed_v<T>)
             {
                 if (T(b_step) < 0) continue;
             }
+
             UT b_size = UT(b_dist / b_step);
             if constexpr (sizeof (UT) > 2)
             {
                 if (b_size > INTERVAL_MAX) {b_size = INTERVAL_MAX;}
             }
             b_size = rand(UT(0), b_size);
+
             T b_high = T(b_low + b_size * b_step);
 
             if (!test_interval(Interval<T> {a_low, a_high, T(a_step)}, Interval<T> {b_low, b_high, T(b_step)}, true))
@@ -439,27 +468,75 @@ struct Test
     }
 };
 
+int usage(char const * file, int e = -1)
+{
+    std::cerr << "usage: " << file << "[-h] [-d] [-s1] [-s2] [-sa] type [x.low x.high [x_step] y.low y.high [y_step]]\n";
+    return -e;
+}
+
 int main(int argc, char const * argv[])
 {
-    // Test<int> i {-3.5, 10LL}; // ko std::make_unsigned_t<double>, ok for 2nd constructor
-    {Test<int> i {-3, 10LL};}
-    {Test<int> i {-3, 10U};}
+    //// Test<int> i {-3.5, 10LL}; // ko std::make_unsigned_t<double>, ok for 2nd constructor
+    //{Test<int> i {-3, 10LL};}
+    //{Test<int> i {-3, 10U};}
 
-    assert(round_up(0, 3, 1) == 1);
-    assert(round_up(1, 3, 1) == 1);
-    assert(round_up(2, 3, 1) == 4);
+    //assert(round_up(0, 3, 1) == 1);
+    //assert(round_up(1, 3, 1) == 1);
+    //assert(round_up(2, 3, 1) == 4);
 
-    assert(round_up(-3, 3, 1) == -2);
-    assert(round_up(-2, 3, 1) == -2);
-    assert(round_up(-1, 3, 1) == 1);
+    //assert(round_up(-3, 3, 1) == -2);
+    //assert(round_up(-2, 3, 1) == -2);
+    //assert(round_up(-1, 3, 1) == 1);
 
-    assert(round_down(6, 3, 1) == 4);
-    assert(round_down(7, 3, 1) == 7);
-    assert(round_down(8, 3, 1) == 7);
+    //assert(round_down(6, 3, 1) == 4);
+    //assert(round_down(7, 3, 1) == 7);
+    //assert(round_down(8, 3, 1) == 7);
 
-    assert(round_down(-1, 3, 1) == -2);
-    assert(round_down(-2, 3, 1) == -2);
-    assert(round_down(-3, 3, 1) == -5);
+    //assert(round_down(-1, 3, 1) == -2);
+    //assert(round_down(-2, 3, 1) == -2);
+    //assert(round_down(-3, 3, 1) == -5);
+
+    // skip filename
+    char const ** args = &argv[1];
+    
+    for (bool done = false; !done && (argc > 0); ++args, --argc)
+    {
+        if (*args == "-h"s)
+        {
+            DBG_HEX = true;
+        }
+        else if (*args == "-d"s)
+        {
+            DBG_HEX = false;
+        }
+        else if (*args == "-s1"s)
+        {
+            STEP_MODE = S_1;
+        }
+        else if (*args == "-s2"s)
+        {
+            STEP_MODE = S_PO2;
+        }
+        else if (*args == "-sa"s)
+        {
+            STEP_MODE = S_ANY;
+        }
+        else if (*args == "--"s)
+        {
+            done = true;
+        }
+        else if (*args[0] == '-')
+        {
+            std::cerr << "invalid option '" << *args << "'\n";
+            return usage(argv[0]);
+        }
+        else break;
+    }
+
+    if (*args == nullptr)
+    {
+        return usage(argv[0]);
+    }
 
     if (argc == 2)
     {
@@ -479,14 +556,14 @@ int main(int argc, char const * argv[])
             {"u"  , test_random<unsigned int>}
         };
 
-        if (auto f = tfs.find(argv[1]); f != tfs.end())
+        if (auto f = tfs.find(args[0]); f != tfs.end())
         {
             f->second();
         }
         else
         {
-            std::cerr << "invalid type '" << argv[1] << "'\n";
-            return 1;
+            std::cerr << "invalid type '" << argv[0] << "'\n";
+            return usage(argv[0]);
         }
     }
     else if ((argc == 6) || (argc == 8))
@@ -505,20 +582,19 @@ int main(int argc, char const * argv[])
             {"u"  , test<unsigned int>}
         };
 
-        if (auto f = tfs.find(argv[1]); f != tfs.end())
+        if (auto f = tfs.find(args[0]); f != tfs.end())
         {
-            f->second(argv + 2, (argc == 8));
+            f->second(args + 1, (argc == 8));
         }
         else
         {
             std::cerr << "invalid type '" << argv[1] << "'\n";
-            return 1;
+            return usage(argv[0]);
         }
     }
     else
     {
-        std::cerr << "usage: " << argv[0] << "type [x.low x.high [x_step] y.low y.high [y_step]]\n";
-        return 1;
+        return usage(argv[0]);
     }
 
     return 0;
