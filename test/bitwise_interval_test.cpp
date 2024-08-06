@@ -21,6 +21,9 @@
 #define INTERVAL_MAX 0x10000U
 #endif
 
+//#define STEP_1
+#define STEP_PO2
+
 namespace
 {
     template <typename T> struct Dbg
@@ -361,9 +364,9 @@ namespace
 
             T a_low = rand(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
             UT a_dist = distance(a_low, std::numeric_limits<T>::max());
-#ifdef STEP_PO2
+#if defined(STEP_PO2)
             UT a_step = UT(1ULL << rand(0, int((sizeof (T) * CHAR_BIT) - 1)));
-#elif STEP_1
+#elif defined(STEP_1)
             UT a_step = UT(1);
 #else
             UT a_step = rand(UT(1), a_dist);
@@ -382,9 +385,9 @@ namespace
 
             T b_low = rand(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
             UT b_dist = distance(b_low, std::numeric_limits<T>::max());
-#ifdef STEP_PO2
+#if defined(STEP_PO2)
             UT b_step = UT(1ULL << rand(0, int((sizeof (T) * CHAR_BIT) - 1)));
-#elif STEP_1
+#elif defined(STEP_1)
             UT b_step = UT(1);
 #else
             UT b_step = rand(UT(1), b_dist);

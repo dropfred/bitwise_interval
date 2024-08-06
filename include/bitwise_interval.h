@@ -33,18 +33,10 @@ T round_up(T v, T step, T rem)
     }
     else
     {
-        // v = (v + step) - (r - rem);
         v += step - (r - rem);
     }
     return v;
 }
-
-// deprecated
-// template <typename T>
-// T first(T v, T step, T rem)
-// {
-//     return round_up(v, step, rem);
-// }
 
 template <typename T>
 T round_down(T v, T step, T rem)
@@ -61,13 +53,6 @@ T round_down(T v, T step, T rem)
     return v;
 }
 
-// deprecated
-// template <typename T>
-// T last(T v, T step, T rem)
-// {
-//    return round_down(v, step, rem);
-// }
-
 // template <std::integral T>
 template <typename T>
 struct Interval
@@ -78,26 +63,36 @@ struct Interval
     T low, high;
     T step;
 
-    Interval(Interval const &) = default;
-    Interval(Interval &&) = default;
-    // Interval operator = (Interval const &) = default;
+    // left unitialized
+    Interval() {}
 
     template <typename X>
     Interval(X low, X high, X step = X(1)) : low(T(low)), high(T(high)), step(T(step))
     {
-        assert(mod(low, step) == mod(high, step));
+        assert(this->step != 0);
+        assert(this->low <= this->high);
+        assert(mod(this->low, this->step) == mod(this->high, this->step));
     }
-
-    Interval() : Interval(T(0), T(0)) {}
 
     template <typename X>
     Interval(Interval<X> const & i) : Interval(i.low, i.high, i.step) {}
 
-    Interval sub(T begin, T end) const
+    Interval(Interval const &) = default;
+    Interval(Interval &&) = default;
+
+    Interval & operator = (Interval const &) = default;
+
+    template <typename X>
+    Interval & operator = (Interval<X> const & i)
     {
-        assert((begin >= low) && (end <= high));
+        return (*this = Interval {i});
+    }
+
+    Interval sub(T min, T max) const
+    {
+        assert((min >= low) && (max <= high));
         T rem = mod(low, step);
-        return {round_up(begin, step, rem), round_down(begin, step, rem), step};
+        return {round_up(min, step, rem), round_down(max, step, rem), step};
     }
 };
 
@@ -409,6 +404,7 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
     if constexpr (std::is_signed_v<T>)
     {
         using UT = std::make_unsigned_t<T>;
+        using I  = Interval<T>;
         using UI = Interval<UT>;
 
         if ((x.high < zero) || (x.low >= zero))
@@ -429,26 +425,26 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
             // TODO: step
             if ((y.low >= 0) || (y.high < zero))
             {
-                UI nx = xor_interval(UI {x.sub(x.low, m_one)}, UI {y});
-                UI px = xor_interval(UI {x.sub(zero, x.high)}, UI {y});
+                I nx {xor_interval(UI {x.sub(x.low, m_one)}, UI {y})};
+                I px {xor_interval(UI {x.sub(zero, x.high)}, UI {y})};
                 assert(nx.step == px.step);
                 return {std::min(nx.low, px.low), std::max(nx.high, px.high), nx.step};
             }
             else
             {
-                auto nx = x.sub(x.low, m_one);
-                auto px = x.sub(zero, x.high);
-                auto ny = y.sub(y.low, m_one);
-                auto py = y.sub(zero, y.high);
+                I nx = x.sub(x.low, m_one);
+                I px = x.sub(zero, x.high);
+                I ny = y.sub(y.low, m_one);
+                I py = y.sub(zero, y.high);
 
-                auto i1 = xor_interval(UI {nx}, UI {ny});
-                auto i2 = xor_interval(UI {nx}, UI {py});
-                auto i3 = xor_interval(UI {px}, UI {ny});
-                auto i4 = xor_interval(UI {px}, UI {py});
+                I i1 {xor_interval(UI {nx}, UI {ny})};
+                I i2 {xor_interval(UI {nx}, UI {py})};
+                I i3 {xor_interval(UI {px}, UI {ny})};
+                I i4 {xor_interval(UI {px}, UI {py})};
                 assert((i1.step == i2.step) && (i2.step == i3.step) && (i3.step == i4.step));
                 return
                 {
-                    std::min({i1.low , i2.low , i3.low , i4.low}),
+                    std::min({i1.low , i2.low , i3.low , i4.low }),
                     std::max({i1.high, i2.high, i3.high, i4.high}),
                     i1.step
                 };
