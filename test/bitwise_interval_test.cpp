@@ -17,6 +17,10 @@
 
 #define DEV_REPLAY_RAND
 
+#ifndef INTERVAL_MAX
+#define INTERVAL_MAX 0x10000U
+#endif
+
 namespace
 {
     template <typename T> struct Dbg
@@ -86,7 +90,6 @@ namespace
     }
 
 #ifdef DEV_REPLAY_RAND
-    template <typename T>
     class Rand
     {
     public:
@@ -96,11 +99,7 @@ namespace
             std::srand(0);
         }
 
-        T operator () ()
-        {
-            return (*this)(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
-        }
-
+        template <typename T>
         T operator () (T a, T b)
         {
             double r = double(std::rand()) / RAND_MAX;
@@ -108,6 +107,7 @@ namespace
             return T((a * (1.0 - r)) + (b * r));
         }
     };
+
 #else
     template <typename T>
     class Rand
@@ -133,7 +133,7 @@ namespace
     template <typename T>
     bool test_interval(Interval<T> const x, Interval<T> const y, bool trace = true)
     {
-        //std::cout << "### " << x << " / " << y << std::endl;
+        std::cout << "#\n# x = " << x << "\n# y = " << y << "\n#" << std::endl;
 
         auto c_not_x = not_interval(x);
         auto c_not_y = not_interval(y);
@@ -244,7 +244,7 @@ namespace
             if (i == x.high) break;
         }
 
-        bool ok = (c_and >= b_and) && r_and.ok && (c_or >= b_or) && r_or.ok/* && (c_xor >= b_xor) && r_xor.ok*/;
+        bool ok = (c_and >= b_and) && r_and.ok && (c_or >= b_or) && r_or.ok && (c_xor >= b_xor) && r_xor.ok;
 
         if (!ok || trace)
         {
@@ -277,11 +277,11 @@ namespace
                 // :   std::string {"KO "}
                 // );
             };
-            std::cout << ok(c_not_x, b_not_x, true) << "~ " << x << " -> " << c_not_x << " : " << b_not_x << std::endl;
-            std::cout << ok(c_not_y, b_not_y, true) << "~ " << y << " -> " << c_not_y << " : " << b_not_y << std::endl;
-            std::cout << ok(c_and, b_and, r_and.ok) << x << " & " << y << " -> " << c_and << " : " << b_and << std::endl;
-            std::cout << ok(c_or , b_or , r_or.ok ) << x << " | " << y << " -> " << c_or  << " : " << b_or  << std::endl;
-            // std::cout << ok(c_xor, b_xor, r_xor.ok) << x << " ^ " << y << " -> " << c_xor << " : " << b_xor << std::endl;
+            std::cout << ok(c_not_x, b_not_x, true) << "not x : " << c_not_x << " : " << b_not_x << std::endl;
+            std::cout << ok(c_not_y, b_not_y, true) << "not y : " << c_not_y << " : " << b_not_y << std::endl;
+            std::cout << ok(c_and, b_and, r_and.ok) << "and x y : " << c_and << " : " << b_and << std::endl;
+            std::cout << ok(c_or , b_or , r_or.ok ) << "or x y : " << c_or  << " : " << b_or  << std::endl;
+            std::cout << ok(c_xor, b_xor, r_xor.ok) << "xor x y : " << c_xor  << " : " << b_xor  << std::endl;
         }
 
         return ok;
@@ -353,47 +353,55 @@ namespace
     template <typename T>
     void test_random()
     {
-        Rand<T> rand {};
+        Rand rand {};
 
         while (true)
         {
-#define INTERVAL_MAX 0x10000
-            T a_low = rand(); T a_high = rand(a_low, (distance(a_low, std::numeric_limits<T>::max()) < INTERVAL_MAX) ? std::numeric_limits<T>::max() : T(a_low + INTERVAL_MAX));
-            T b_low = rand(); T b_high = rand(b_low, (distance(b_low, std::numeric_limits<T>::max()) < INTERVAL_MAX) ? std::numeric_limits<T>::max() : T(b_low + INTERVAL_MAX));
+            using UT = std::make_unsigned_t<T>;
 
-            // T a_step = T(1), b_step = T(1);
-            constexpr T bits = (sizeof (T) * CHAR_BIT) - 2U;
-            // T a_step = T(1ULL << rand(0, bits)), b_step = T(1ULL << rand(0, bits));
-            T a_step = (a_low != a_high) ? rand(1, distance(a_low, a_high)) : 1U, b_step = (b_low != b_high) ? distance(b_low, b_high) : 1U;
-
-#if 0
-            a_low &= 0xF; a_high &= 0xF;
-            b_low &= 0xF; b_high &= 0xF;
-            if (a_low > a_high) std::swap(a_low, a_high);
-            if (b_low > b_high) std::swap(b_low, b_high);
-            a_step = T(1ULL << rand(0, 3));
-            b_step = T(1ULL << rand(0, 3));
-            a_step = b_step = 1U;
+            T a_low = rand(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
+            UT a_dist = distance(a_low, std::numeric_limits<T>::max());
+#ifdef STEP_PO2
+            UT a_step = UT(1ULL << rand(0, int((sizeof (T) * CHAR_BIT) - 1)));
+#elif STEP_1
+            UT a_step = UT(1);
+#else
+            UT a_step = rand(UT(1), a_dist);
 #endif
+            if constexpr (std::is_signed_v<T>)
+            {
+                if (T(a_step) < 0) continue;
+            }
+            UT a_size = UT(a_dist / a_step);
+            if constexpr (sizeof (UT) > 2)
+            {
+                if (a_size > INTERVAL_MAX) {a_size = INTERVAL_MAX;}
+            }
+            a_size = rand(UT(0), a_size);
+            T a_high = T(a_low + a_size * a_step);
 
-// https://en.wikipedia.org/wiki/Modulo
-// https://stackoverflow.com/questions/3883004/how-does-the-modulo-operator-work-on-negative-numbers-in-python
-// python -2 % 3 -> 1
-// C -2 % 3 -> -2
-// "[0..10] * 3"     -> [0..30],0%3
-// "[0..10] * 3 + 2  -> [2..32],2%3
-// "[0..10] * 3 - 2" -> [-2..28],1%3
+            T b_low = rand(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
+            UT b_dist = distance(b_low, std::numeric_limits<T>::max());
+#ifdef STEP_PO2
+            UT b_step = UT(1ULL << rand(0, int((sizeof (T) * CHAR_BIT) - 1)));
+#elif STEP_1
+            UT b_step = UT(1);
+#else
+            UT b_step = rand(UT(1), b_dist);
+#endif
+            if constexpr (std::is_signed_v<T>)
+            {
+                if (T(b_step) < 0) continue;
+            }
+            UT b_size = UT(b_dist / b_step);
+            if constexpr (sizeof (UT) > 2)
+            {
+                if (b_size > INTERVAL_MAX) {b_size = INTERVAL_MAX;}
+            }
+            b_size = rand(UT(0), b_size);
+            T b_high = T(b_low + b_size * b_step);
 
-            T a_rem = mod(a_low, a_step);
-            T b_rem = mod(b_low, b_step);
-            a_high = last(a_high, a_step, a_rem);
-            b_high = last(b_high, b_step, b_rem);
-            assert(a_low == first(a_low, a_step, a_rem));
-            assert(b_low == first(b_low, b_step, b_rem));
-            assert(mod(a_high, a_step) == a_rem);
-            assert(mod(b_high, b_step) == b_rem);
-
-            if (!test_interval(Interval<T> {a_low, a_high, a_step}, Interval<T> {b_low, b_high, b_step}, true))
+            if (!test_interval(Interval<T> {a_low, a_high, T(a_step)}, Interval<T> {b_low, b_high, T(b_step)}, true))
             {
                 break;
             }
@@ -404,35 +412,51 @@ namespace
     }
 }
 
+template <typename T>
+struct Test
+{
+    using Type = T;
+    using UType = std::make_unsigned_t<T>;
+
+    Type s;
+    UType u;
+
+    // template <typename X>
+    // Test(X s, std::make_unsigned_t<X> u) : s(Type(s)), u(UType(u)) {}
+
+    template <typename X, typename UX>
+    Test(X s, UX u) : s(Type(s)), u(UType(u))
+    {
+        // assert(s >= std::numeric_limits<Type>::min());
+        // assert(s <= std::numeric_limits<Type>::max());
+        if constexpr (std::is_signed_v<T>)
+        {
+            assert(u >= UX(0));
+        }
+    }
+};
+
 int main(int argc, char const * argv[])
 {
-    // {
-    //     using I = Interval<std::uint8_t>;
-    //     I x {1, 1};
-    //     I y {0, 0};
-    //     std::cout << "x = " << x << std::endl;
-    //     std::cout << "~x = " << not_interval(x) << std::endl;
-    //     std::cout << "y = " << y << std::endl;
-    //     std::cout << "~y = " << not_interval(y) << std::endl;
-    //     test_interval(x, y, true);
-    //     return 0;
-    // }
+    // Test<int> i {-3.5, 10LL}; // ko std::make_unsigned_t<double>, ok for 2nd constructor
+    {Test<int> i {-3, 10LL};}
+    {Test<int> i {-3, 10U};}
 
-    assert(first(0, 3, 1) == 1);
-    assert(first(1, 3, 1) == 1);
-    assert(first(2, 3, 1) == 4);
+    assert(round_up(0, 3, 1) == 1);
+    assert(round_up(1, 3, 1) == 1);
+    assert(round_up(2, 3, 1) == 4);
 
-    assert(first(-3, 3, 1) == -2);
-    assert(first(-2, 3, 1) == -2);
-    assert(first(-1, 3, 1) == 1);
+    assert(round_up(-3, 3, 1) == -2);
+    assert(round_up(-2, 3, 1) == -2);
+    assert(round_up(-1, 3, 1) == 1);
 
-    assert(last(6, 3, 1) == 4);
-    assert(last(7, 3, 1) == 7);
-    assert(last(8, 3, 1) == 7);
+    assert(round_down(6, 3, 1) == 4);
+    assert(round_down(7, 3, 1) == 7);
+    assert(round_down(8, 3, 1) == 7);
 
-    assert(last(-1, 3, 1) == -2);
-    assert(last(-2, 3, 1) == -2);
-    assert(last(-3, 3, 1) == -5);
+    assert(round_down(-1, 3, 1) == -2);
+    assert(round_down(-2, 3, 1) == -2);
+    assert(round_down(-3, 3, 1) == -5);
 
     if (argc == 2)
     {
@@ -490,7 +514,7 @@ int main(int argc, char const * argv[])
     }
     else
     {
-        std::cerr << "usage: " << argv[0] << "type [x.low x.high y.low y.high]\n";
+        std::cerr << "usage: " << argv[0] << "type [x.low x.high [x_step] y.low y.high [y_step]]\n";
         return 1;
     }
 

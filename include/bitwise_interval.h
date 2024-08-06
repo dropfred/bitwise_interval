@@ -40,11 +40,11 @@ T round_up(T v, T step, T rem)
 }
 
 // deprecated
-template <typename T>
-T first(T v, T step, T rem)
-{
-    return round_up(v, step, rem);
-}
+// template <typename T>
+// T first(T v, T step, T rem)
+// {
+//     return round_up(v, step, rem);
+// }
 
 template <typename T>
 T round_down(T v, T step, T rem)
@@ -62,16 +62,19 @@ T round_down(T v, T step, T rem)
 }
 
 // deprecated
-template <typename T>
-T last(T v, T step, T rem)
-{
-   return round_down(v, step, rem);
-}
+// template <typename T>
+// T last(T v, T step, T rem)
+// {
+//    return round_down(v, step, rem);
+// }
 
 // template <std::integral T>
 template <typename T>
 struct Interval
 {
+    using Type = T;
+    using UType = std::make_unsigned_t<T>;
+    
     T low, high;
     T step;
 
@@ -80,7 +83,10 @@ struct Interval
     // Interval operator = (Interval const &) = default;
 
     template <typename X>
-    Interval(X low, X high, X step = X(1)) : low(T(low)), high(T(high)), step(T(step)) {}
+    Interval(X low, X high, X step = X(1)) : low(T(low)), high(T(high)), step(T(step))
+    {
+        assert(mod(low, step) == mod(high, step));
+    }
 
     Interval() : Interval(T(0), T(0)) {}
 
@@ -89,6 +95,7 @@ struct Interval
 
     Interval sub(T begin, T end) const
     {
+        assert((begin >= low) && (end <= high));
         T rem = mod(low, step);
         return {round_up(begin, step, rem), round_down(begin, step, rem), step};
     }
@@ -132,39 +139,58 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
         }
         else
         {
+            constexpr T m_one = T(-1);
+
             // TODO: step
             if (y.low >= 0)
             {
                 // UI nx {x.low, last(T(-one), x.step, mod(x.low, x.step)), x.step};
                 // UI px {first(zero, x.step, mod(x.low, x.step)), x.high, x.step};
-                // UI nx {x.sub(x.low, T(-one))};
-                // UI px {x.sub(zero, x.high)}; 
                 // UI n = and_interval(nx, UI {y});
                 // UI p = and_interval(px, UI {y});
-                UI n = and_interval(UI {x.sub(x.low, T(-one))}, UI {y});
+                // return {std::min(n.low, p.low), std::max(n.high, p.high), n.step};
+
+                UI n = and_interval(UI {x.sub(x.low, m_one)}, UI {y});
                 UI p = and_interval(UI {x.sub(zero, x.high)}, UI {y});
                 assert(n.step == p.step);
                 return {std::min(n.low, p.low), std::max(n.high, p.high), n.step};
             }
             else if (y.high < zero)
             {
-                T last_x  = last(T(-one), x.step, mod(x.low, x.step));
-                T first_x = first(zero, x.step, mod(x.low, x.step));
-                auto n = and_interval(UI {x.low, last_x, x.step}, UI {y.low, y.high, y.step});
-                auto p = and_interval(UI {first_x, x.high, x.step}, UI {y.low, y.high, y.step});
+                // T last_x  = last(T(-one), x.step, mod(x.low, x.step));
+                // T first_x = first(zero, x.step, mod(x.low, x.step));
+                // auto n = and_interval(UI {x.low, last_x, x.step}, UI {y.low, y.high, y.step});
+                // auto p = and_interval(UI {first_x, x.high, x.step}, UI {y.low, y.high, y.step});
+                // assert(n.step == p.step);
+                // return {n.low, p.high, n.step};
+
+                UI n = and_interval(UI {x.sub(x.low, m_one)}, UI {y});
+                UI p = and_interval(UI {x.sub(zero, x.high)}, UI {y});
                 assert(n.step == p.step);
                 return {n.low, p.high, n.step};
             }
             else
             {
-                T last_x  = last(T(-one), x.step, mod(x.low, x.step));
-                T first_x = first(zero, x.step, mod(x.low, x.step));
-                T last_y  = last(T(-one), y.step, mod(y.low, y.step));
-                T first_y = first(zero, y.step, mod(y.low, y.step));
-                auto n  = and_interval(UI {x.low, last_x, x.step}, UI {y.low, last_y, y.step});
-                auto p1 = and_interval(UI {x.low, last_x, x.step}, UI {first_y, y.high, y.step});
-                auto p2 = and_interval(UI {first_x, x.high, x.step}, UI {y.low, last_y, y.step});
-                auto p3 = and_interval(UI {first_x, x.high, x.step}, UI {first_y, y.high, y.step});
+                // T last_x  = last(T(-one), x.step, mod(x.low, x.step));
+                // T first_x = first(zero, x.step, mod(x.low, x.step));
+                // T last_y  = last(T(-one), y.step, mod(y.low, y.step));
+                // T first_y = first(zero, y.step, mod(y.low, y.step));
+                // auto n  = and_interval(UI {x.low, last_x, x.step}, UI {y.low, last_y, y.step});
+                // auto p1 = and_interval(UI {x.low, last_x, x.step}, UI {first_y, y.high, y.step});
+                // auto p2 = and_interval(UI {first_x, x.high, x.step}, UI {y.low, last_y, y.step});
+                // auto p3 = and_interval(UI {first_x, x.high, x.step}, UI {first_y, y.high, y.step});
+                // assert((n.step == p1.step) && (n.step == p2.step) && (n.step == p3.step));
+                // return {n.low, std::max({p1.high, p2.high, p3.high}), n.step};
+
+                auto nx = x.sub(x.low, m_one);
+                auto px = x.sub(zero, x.high);
+                auto ny = y.sub(y.low, m_one);
+                auto py = y.sub(zero, y.high);
+
+                auto n  = and_interval(UI {nx}, UI {ny});
+                auto p1 = and_interval(UI {nx}, UI {py});
+                auto p2 = and_interval(UI {px}, UI {ny});
+                auto p3 = and_interval(UI {px}, UI {py});
                 assert((n.step == p1.step) && (n.step == p2.step) && (n.step == p3.step));
                 return {n.low, std::max({p1.high, p2.high, p3.high}), n.step};
             }
@@ -303,7 +329,64 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
 template <typename T>
 Interval<T> or_interval(Interval<T> const & x, Interval<T> const & y)
 {
-    return not_interval(and_interval(not_interval(x), not_interval(y)));
+#if 0
+    constexpr T zero = T(0);
+    constexpr T one  = T(1);
+
+    if constexpr (std::is_signed_v<T>)
+    {
+        using UT = std::make_unsigned_t<T>;
+        using UI = Interval<UT>;
+
+        if ((x.high < zero) || (x.low >= zero))
+        {
+            if ((y.high < zero) || (y.low >= zero))
+            {
+                return or_interval(UI {x}, UI {y});
+            }
+            else
+            {
+                return or_interval(y, x);
+            }
+        }
+        else
+        {
+            constexpr T m_one = T(-1);
+
+            // TODO: step
+            if ((y.low >= 0) || (y.high < zero))
+            {
+                UI nx = or_interval(UI {x.sub(x.low, m_one)}, UI {y});
+                UI px = or_interval(UI {x.sub(zero, x.high)}, UI {y});
+                assert(nx.step == px.step);
+                return {std::min(nx.low, px.low), std::max(nx.high, px.high), nx.step};
+            }
+            else
+            {
+                auto nx = x.sub(x.low, m_one);
+                auto px = x.sub(zero, x.high);
+                auto ny = y.sub(y.low, m_one);
+                auto py = y.sub(zero, y.high);
+
+                auto i1 = or_interval(UI {nx}, UI {ny});
+                auto i2 = or_interval(UI {nx}, UI {py});
+                auto i3 = or_interval(UI {px}, UI {ny});
+                auto i4 = or_interval(UI {px}, UI {py});
+                assert((i1.step == i2.step) && (i2.step == i3.step) && (i3.step == i4.step));
+                return
+                {
+                    std::min({i1.low , i2.low , i3.low , i4.low}),
+                    std::max({i1.high, i2.high, i3.high, i4.high}),
+                    i1.step
+                };
+            }
+        }
+    }
+    else
+#endif
+    {
+        return not_interval(and_interval(not_interval(x), not_interval(y)));
+    }
 }
 
 // KO : The `or` trick above doesn't work with `xor`.
@@ -322,60 +405,60 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
 {
     constexpr T zero = T(0);
     constexpr T one  = T(1);
-    constexpr T msb  = T(one << (sizeof (T) * CHAR_BIT - 1U));
 
     if constexpr (std::is_signed_v<T>)
     {
-        // using UT = std::make_unsigned_t<T>;
-        // using UI = Interval<UT>;
-        // if ((x.high < zero) || (x.low >= zero))
-        // {
-        //     if ((y.high < zero) || (y.low >= zero))
-        //     {
-        //         auto r = xor_interval
-        //         (
-        //             UI {UT(x.low), UT(x.high), UT(x.step)},
-        //             UI {UT(y.low), UT(y.high), UT(y.step)}
-        //         );
-        //         return {T(r.low), T(r.high), T(r.step)};
-        //     }
-        //     else
-        //     {
-        //         return xor_interval(y, x);
-        //     }
-        // }
-        // else
-        // {
-        //     if (y.low >= 0)
-        //     {
-        //         // TODO: step
-        //         return {T(0), y.high};
-        //     }
-        //     else if (y.high < zero)
-        //     {
-        //         // TODO: step
-        //         auto n = xor_interval(UI {UT(x.low), UT(-one)}, UI {UT(y.low), UT(y.high)});
-        //         auto p = xor_interval(UI {UT(zero), UT(x.high)}, UI {UT(y.low), UT(y.high)});
-        //         return {T(n.low), T(p.high)};
-        //     }
-        //     else
-        //     {
-        //         // TODO: step
-        //         auto n = xor_interval(UI {UT(x.low), UT(-one)}, UI {UT(y.low), UT(-one)});
-        //         auto p1 = xor_interval(UI {UT(x.low), UT(-one)}, UI {UT(zero), UT(y.high)});
-        //         auto p2 = xor_interval(UI {UT(zero), UT(x.high)}, UI {UT(y.low), UT(-one)});
-        //         auto p3 = xor_interval(UI {UT(zero), UT(x.high)}, UI {UT(zero), UT(y.high)});
-        //         return
-        //         {
-        //             T(n.low),
-        //             T(std::max({p1.high, p2.high, p3.high}))
-        //         };
-        //     }
-        // }
-        return {T(0), T(0)};
+        using UT = std::make_unsigned_t<T>;
+        using UI = Interval<UT>;
+
+        if ((x.high < zero) || (x.low >= zero))
+        {
+            if ((y.high < zero) || (y.low >= zero))
+            {
+                return xor_interval(UI {x}, UI {y});
+            }
+            else
+            {
+                return xor_interval(y, x);
+            }
+        }
+        else
+        {
+            constexpr T m_one = T(-1);
+
+            // TODO: step
+            if ((y.low >= 0) || (y.high < zero))
+            {
+                UI nx = xor_interval(UI {x.sub(x.low, m_one)}, UI {y});
+                UI px = xor_interval(UI {x.sub(zero, x.high)}, UI {y});
+                assert(nx.step == px.step);
+                return {std::min(nx.low, px.low), std::max(nx.high, px.high), nx.step};
+            }
+            else
+            {
+                auto nx = x.sub(x.low, m_one);
+                auto px = x.sub(zero, x.high);
+                auto ny = y.sub(y.low, m_one);
+                auto py = y.sub(zero, y.high);
+
+                auto i1 = xor_interval(UI {nx}, UI {ny});
+                auto i2 = xor_interval(UI {nx}, UI {py});
+                auto i3 = xor_interval(UI {px}, UI {ny});
+                auto i4 = xor_interval(UI {px}, UI {py});
+                assert((i1.step == i2.step) && (i2.step == i3.step) && (i3.step == i4.step));
+                return
+                {
+                    std::min({i1.low , i2.low , i3.low , i4.low}),
+                    std::max({i1.high, i2.high, i3.high, i4.high}),
+                    i1.step
+                };
+            }
+        }
     }
     else
     {
+        constexpr T msb  = T(one << (sizeof (T) * CHAR_BIT - 1U));
+
         T low  = zero;
         T high = zero;
 
@@ -500,6 +583,7 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
     }
 }
 
+#if 0
 // TODO step
 template <typename T>
 Interval<T> xor_interval_1(Interval<T> const & x, Interval<T> const & y)
@@ -637,5 +721,6 @@ Interval<T> xor_interval_1(Interval<T> const & x, Interval<T> const & y)
         return {low, high, step};
     }
 }
+#endif
 
 #endif
