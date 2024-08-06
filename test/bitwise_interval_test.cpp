@@ -135,6 +135,46 @@ namespace
     {
         //std::cout << "### " << x << " / " << y << std::endl;
 
+        auto c_not_x = not_interval(x);
+        auto c_not_y = not_interval(y);
+
+        Interval<T> b_not_x, b_not_y;
+        b_not_x.low  = b_not_y.low  = std::numeric_limits<T>::max();
+        b_not_x.high = b_not_y.high = std::numeric_limits<T>::min();
+
+        for (T i = x.low; ; i += x.step)
+        {
+            T r;
+
+            r = ~i;
+            if (r < b_not_x.low)
+            {
+                b_not_x.low = r;
+            }
+            if (r > b_not_x.high)
+            {
+                b_not_x.high = r;
+            }
+            if (i == x.high) break;
+        }
+
+        for (T j = y.low; ; j += y.step)
+        {
+            T r;
+
+            r = ~j;
+            if (r < b_not_y.low)
+            {
+                b_not_y.low = r;
+            }
+            if (r > b_not_y.high)
+            {
+                b_not_y.high = r;
+            }
+            if (j == y.high) break;
+        }
+
+
         auto c_and = and_interval(x, y);
         auto c_or  = or_interval(x, y);
         auto c_xor = xor_interval(x, y);
@@ -223,7 +263,7 @@ namespace
                 (
                    r && (a == b) ? "OK "s
                 // :   r && (a >= b) ? "OVER "s + std::to_string(distance(a.low, a.high)) + " / " + std::to_string(distance(b.low, b.high)) + " / " + std::to_string(distance(a.low, a.high) - distance(b.low, b.high)) + " "
-                :   r && (a >= b) ? "OVER ("s + std::to_string(distance(a.low, a.high) - distance(b.low, b.high)) + ") "
+                :   r && (a >= b) ? "OVER ("s + std::to_string(distance(a.low, a.high) - distance(b.low, b.high)) + ") "s
                 :   (a == b)      ? "STEP "s
                 :   (a >= b)      ? "STEP+OVER "s
                 :   "KO "s
@@ -237,6 +277,8 @@ namespace
                 // :   std::string {"KO "}
                 // );
             };
+            std::cout << ok(c_not_x, b_not_x, true) << "~ " << x << " -> " << c_not_x << " : " << b_not_x << std::endl;
+            std::cout << ok(c_not_y, b_not_y, true) << "~ " << y << " -> " << c_not_y << " : " << b_not_y << std::endl;
             std::cout << ok(c_and, b_and, r_and.ok) << x << " & " << y << " -> " << c_and << " : " << b_and << std::endl;
             std::cout << ok(c_or , b_or , r_or.ok ) << x << " | " << y << " -> " << c_or  << " : " << b_or  << std::endl;
             // std::cout << ok(c_xor, b_xor, r_xor.ok) << x << " ^ " << y << " -> " << c_xor << " : " << b_xor << std::endl;
@@ -364,6 +406,18 @@ namespace
 
 int main(int argc, char const * argv[])
 {
+    // {
+    //     using I = Interval<std::uint8_t>;
+    //     I x {1, 1};
+    //     I y {0, 0};
+    //     std::cout << "x = " << x << std::endl;
+    //     std::cout << "~x = " << not_interval(x) << std::endl;
+    //     std::cout << "y = " << y << std::endl;
+    //     std::cout << "~y = " << not_interval(y) << std::endl;
+    //     test_interval(x, y, true);
+    //     return 0;
+    // }
+
     assert(first(0, 3, 1) == 1);
     assert(first(1, 3, 1) == 1);
     assert(first(2, 3, 1) == 4);
