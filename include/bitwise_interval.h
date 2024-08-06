@@ -9,36 +9,6 @@
 // #include <concepts>
 #include <cassert>
 
-// template <std::integral T>
-template <typename T>
-struct Interval
-{
-    T low, high;
-    T step;
-
-    template <typename X>
-    Interval(X low, X high, X step = X(1)) : low(T(low)), high(T(high)), step(T(step)) {}
-
-    Interval() : Interval(T(0), T(0)) {}
-
-    template <typename X>
-    Interval(Interval<X> const & i) : Interval(i.low, i.high, i.step) {}
-};
-
-template <typename T>
-Interval<T> not_interval(Interval<T> const & i)
-{
-    return {T(~i.high), T(~i.low), i.step};
-}
-
-template <typename X, typename Y>
-auto and_interval(Interval<X> const & x, Interval<Y> const & y)
-{
-	using CT = std::common_type_t<X, Y>;
-
-	return and_interval(Interval<CT> {x}, Interval<CT> {y});
-}
-
 template <typename T>
 T mod(T a, T n)
 {
@@ -54,7 +24,7 @@ T mod(T a, T n)
 }
 
 template <typename T>
-T first(T v, T step, T rem)
+T round_up(T v, T step, T rem)
 {
     T r = mod(v, step);
     if (r <= rem)
@@ -69,8 +39,15 @@ T first(T v, T step, T rem)
     return v;
 }
 
+// deprecated
 template <typename T>
-T last(T v, T step, T rem)
+T first(T v, T step, T rem)
+{
+    return round_up(v, step, rem);
+}
+
+template <typename T>
+T round_down(T v, T step, T rem)
 {
     T r = mod(v, step);
     if (r >= rem)
@@ -79,11 +56,57 @@ T last(T v, T step, T rem)
     }
     else
     {
-        // v = (v - step) + (rem - r);
         v -= (step + r) - rem;
     }
     return v;
 }
+
+// deprecated
+template <typename T>
+T last(T v, T step, T rem)
+{
+   return round_down(v, step, rem);
+}
+
+// template <std::integral T>
+template <typename T>
+struct Interval
+{
+    T low, high;
+    T step;
+
+    Interval(Interval const &) = default;
+    Interval(Interval &&) = default;
+    // Interval operator = (Interval const &) = default;
+
+    template <typename X>
+    Interval(X low, X high, X step = X(1)) : low(T(low)), high(T(high)), step(T(step)) {}
+
+    Interval() : Interval(T(0), T(0)) {}
+
+    template <typename X>
+    Interval(Interval<X> const & i) : Interval(i.low, i.high, i.step) {}
+
+    Interval sub(T begin, T end) const
+    {
+        T rem = mod(low, step);
+        return {round_up(begin, step, rem), round_down(begin, step, rem), step};
+    }
+};
+
+template <typename T>
+Interval<T> not_interval(Interval<T> const & i)
+{
+    return {T(~i.high), T(~i.low), i.step};
+}
+
+// template <typename X, typename Y>
+// auto and_interval(Interval<X> const & x, Interval<Y> const & y)
+// {
+// 	using CT = std::common_type_t<X, Y>;
+
+// 	return and_interval(Interval<CT> {x}, Interval<CT> {y});
+// }
 
 template <typename T>
 Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
@@ -95,6 +118,7 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
     {
         using UT = std::make_unsigned_t<T>;
         using UI = Interval<UT>;
+
         if ((x.high < zero) || (x.low >= zero))
         {
             if ((y.high < zero) || (y.low >= zero))
@@ -111,10 +135,14 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
             // TODO: step
             if (y.low >= 0)
             {
-                UI nx {x.low, last(T(-one), x.step, mod(x.low, x.step)), x.step};
-                UI px {first(zero, x.step, mod(x.low, x.step)), x.high, x.step};
-                UI n = and_interval(nx, UI {y});
-                UI p = and_interval(px, UI {y});
+                // UI nx {x.low, last(T(-one), x.step, mod(x.low, x.step)), x.step};
+                // UI px {first(zero, x.step, mod(x.low, x.step)), x.high, x.step};
+                // UI nx {x.sub(x.low, T(-one))};
+                // UI px {x.sub(zero, x.high)}; 
+                // UI n = and_interval(nx, UI {y});
+                // UI p = and_interval(px, UI {y});
+                UI n = and_interval(UI {x.sub(x.low, T(-one))}, UI {y});
+                UI p = and_interval(UI {x.sub(zero, x.high)}, UI {y});
                 assert(n.step == p.step);
                 return {std::min(n.low, p.low), std::max(n.high, p.high), n.step};
             }
