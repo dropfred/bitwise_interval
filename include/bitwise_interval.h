@@ -70,6 +70,12 @@ struct Interval
     Interval(X low, X high, X step = X(1)) : low(T(low)), high(T(high)), step(T(step))
     {
         assert(this->step != 0);
+        // TODO
+        // assert((this->low != this->high) || (this->step != T(1)));
+        if (this->low == this->high)
+        {
+            this->step = T(1);
+        }
         assert(this->low <= this->high);
         assert(mod(this->low, this->step) == mod(this->high, this->step));
     }

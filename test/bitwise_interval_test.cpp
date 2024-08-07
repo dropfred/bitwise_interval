@@ -26,8 +26,7 @@ using namespace std::string_literals;
 #define INTERVAL_MAX 0x1000U
 #endif
 
-//#define STEP_1
-//#define STEP_PO2
+#define BRUTE_STEP_MAX 1
 
 namespace
 {
@@ -40,6 +39,18 @@ namespace
     } STEP_MODE = S_ANY;
 
     bool DBG_HEX = false;
+
+    template <typename T>
+    bool operator == (Interval<T> const & a, Interval<T> const & b)
+    {
+        return ((a.low == b.low) && (a.high == b.high) && (a.step == b.step));
+    }
+
+    template <typename T>
+    bool operator >= (Interval<T> const & a, Interval<T> const & b)
+    {
+        return ((a.low <= b.low) && (a.high >= b.high) && (a.step <= b.step) && (std::gcd(a.step, b.step) == a.step));
+    }
 
     template <typename T> struct Dbg
     {
@@ -74,18 +85,6 @@ namespace
             }
         }
         return os;
-    }
-
-    template <typename T>
-    bool operator == (Interval<T> const & a, Interval<T> const & b)
-    {
-        return ((a.low == b.low) && (a.high == b.high));
-    }
-
-    template <typename T>
-    bool operator >= (Interval<T> const & a, Interval<T> const & b)
-    {
-        return ((a.low <= b.low) && (a.high >= b.high));
     }
 
     template <typename T>
@@ -164,7 +163,7 @@ namespace
     template <typename T>
     bool test_interval(Interval<T> const x, Interval<T> const y, bool trace = true)
     {
-        std::cout << "#\n# x = " << x << "\n# y = " << y << "\n#" << std::endl;
+        std::cout << "# x = " << x << "\n# y = " << y << std::endl;
 
         auto c_not_x = not_interval(x);
         auto c_not_y = not_interval(y);
@@ -172,6 +171,7 @@ namespace
         Interval<T> b_not_x, b_not_y;
         b_not_x.low  = b_not_y.low  = std::numeric_limits<T>::max();
         b_not_x.high = b_not_y.high = std::numeric_limits<T>::min();
+        b_not_x.step = c_not_x.step, b_not_y.step = c_not_y.step;
 
         for (T i = x.low; ; i += x.step)
         {
@@ -220,49 +220,36 @@ namespace
         b_and.low  = b_or.low  = b_xor.low  = std::numeric_limits<T>::max();
         b_and.high = b_or.high = b_xor.high = std::numeric_limits<T>::min();
 
+        constexpr bool BRUTE_STEP = sizeof (T) <= BRUTE_STEP_MAX;
+
         struct
         {
-            std::set<T> s_and, s_or, s_xor;
+            std::set<T> vs;
 
-            void add_and(T v)
+            void add(T v)
             {
-                if constexpr (sizeof (T) > 1)
+                if constexpr (BRUTE_STEP)
                 {
-                    s_and.insert(v);
+                    vs.insert(v);
                 }
             }
 
-            void add_or(T v)
-            {
-                if constexpr (sizeof (T) > 1)
-                {
-                    s_or.insert(v);
-                }
-            }
-
-            void add_xor(T v)
-            {
-                if constexpr (sizeof (T) > 1)
-                {
-                    s_xor.insert(v);
-                }
-            }
-
-            std::size_t get_and_step() const
+            std::size_t get_step() const
             {
                 std::size_t s = 1;
-                if (s_and.size() > 1)
+                if (vs.size() > 1)
                 {
-                    auto v0 = s_and.begin();
-                    auto v1 = ++v0;
-                    s = *v1 - *v0;
-                    //for (auto v1 = ++v0, ve = s_and.end(); v1 != ve; ++v1)
+                    auto j = vs.begin();
+                    auto i = j++;
+                    s = *j - *i;
+                    for (i = j++; (j != vs.end()) && (s > 1); i = j++)
                     {
+                        s = std::gcd(s, *j - *i);
                     }
                 }
                 return s;
             }
-        } step {};
+        } s_and {}, s_or {}, s_xor {};
 
         for (T i = x.low; ; i += x.step)
         {
@@ -271,8 +258,7 @@ namespace
                 T r;
 
                 r = i & j;
-                step.add_and(r);
-                (void)step.get_and_step();
+                s_and.add(r);
                 if (r < b_and.low)
                 {
                     b_and.low = r;
@@ -281,12 +267,13 @@ namespace
                 {
                     b_and.high = r;
                 }
-                if (mod(r,c_and.step) != r_and.rem)
+                if (mod(r, c_and.step) != r_and.rem)
                 {
                     r_and.ok = false;
                 }
 
                 r = i | j;
+                s_or.add(r);
                 if (r < b_or.low)
                 {
                     b_or.low = r;
@@ -295,12 +282,13 @@ namespace
                 {
                     b_or.high = r;
                 }
-                if (mod(r,c_or.step) != r_or.rem)
+                if (mod(r, c_or.step) != r_or.rem)
                 {
                     r_or.ok = false;
                 }
 
                 r = i ^ j;
+                s_xor.add(r);
                 if (r < b_xor.low)
                 {
                     b_xor.low = r;
@@ -309,7 +297,7 @@ namespace
                 {
                     b_xor.high = r;
                 }
-                if (mod(r,c_xor.step) != r_xor.rem)
+                if (mod(r, c_xor.step) != r_xor.rem)
                 {
                     r_xor.ok = false;
                 }
@@ -318,6 +306,19 @@ namespace
             }
 
             if (i == x.high) break;
+        }
+
+        if constexpr (BRUTE_STEP)
+        {
+            b_and.step = s_and.get_step();
+            b_or.step  = s_or.get_step();
+            b_xor.step = s_xor.get_step();
+        }
+        else
+        {
+            b_and.step = c_and.step;
+            b_or.step  = c_or.step;
+            b_xor.step = c_xor.step;
         }
 
         bool ok = (c_and >= b_and) && r_and.ok && (c_or >= b_or) && r_or.ok && (c_xor >= b_xor) && r_xor.ok;
@@ -378,38 +379,6 @@ namespace
     }
 
     template <typename T>
-    void test_all()
-    {
-        for (T low = std::numeric_limits<T>::min(); ; ++low)
-        {
-            //std::cout << "a.low : " << Dbg {low} << std::endl;
-            for (T high = low; ; ++high)
-            {
-                Interval<T> a {low, high};
-                std::cout << "a : " << a << std::endl;
-                for (T low = std::numeric_limits<T>::min(); ; ++low)
-                {
-                    //std::cout << "b.low : " << Dbg {low} << std::endl;
-                    for (T high = low; ; ++high)
-                    {
-                        //std::cout << "b.high : " << Dbg {high} << std::endl;
-                        Interval<T> b {low, high};
-                        //std::cout << "b : " << b << std::endl;
-                        if (!test_interval(a, b, false))
-                        {
-                            return;
-                        }
-                        if (high == std::numeric_limits<T>::max()) break;
-                    }
-                    if (low == std::numeric_limits<T>::max()) break;
-                }
-                if (high == std::numeric_limits<T>::max()) break;
-            }
-            if (low == std::numeric_limits<T>::max()) break;
-        }
-    }
-
-    template <typename T>
     void test_random()
     {
         Rand rand {};
@@ -446,6 +415,10 @@ namespace
                 if (a_size > INTERVAL_MAX) {a_size = INTERVAL_MAX;}
             }
             a_size = rand(UT(0), a_size);
+            if (a_size == UT(0))
+            {
+                a_step = UT(1);
+            }
 
             T a_high = T(a_low + a_size * a_step);
 
@@ -477,9 +450,15 @@ namespace
                 if (b_size > INTERVAL_MAX) {b_size = INTERVAL_MAX;}
             }
             b_size = rand(UT(0), b_size);
+            if (b_size == UT(0))
+            {
+                b_step = UT(1);
+            }
 
             T b_high = T(b_low + b_size * b_step);
 
+            std::cout << "DBG A : " << +a_low << " / " << +a_high << " / " << +a_step << " / " << +T(a_step) << std::endl;
+            std::cout << "DBG B : " << +b_low << " / " << +b_high << " / " << +b_step << " / " << +T(b_step) << std::endl;
             if (!test_interval(Interval<T> {a_low, a_high, T(a_step)}, Interval<T> {b_low, b_high, T(b_step)}, true))
             {
                 break;
@@ -590,8 +569,6 @@ int main(int argc, char const * argv[])
     {
         static std::map<std::string, std::function<void (void)>> const tfs =
         {
-            //{"s8" , test_all<int8_t>},
-            //{"u8" , test_all<uint8_t>}
             {"s8" , test_random<int8_t>},
             {"u8" , test_random<uint8_t>},
             {"s16", test_random<int16_t>},
