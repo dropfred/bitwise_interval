@@ -72,7 +72,7 @@ struct Interval
         assert(this->step != 0);
         // TODO
         // assert((this->low != this->high) || (this->step != T(1)));
-        if (this->low == this->high)
+        if ((this->low == this->high) && (this->step != T(1)))
         {
             this->step = T(1);
         }
@@ -153,8 +153,8 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
 
                 UI n = and_interval(UI {x.sub(x.low, m_one)}, UI {y});
                 UI p = and_interval(UI {x.sub(zero, x.high)}, UI {y});
-                assert(n.step == p.step);
-                return {std::min(n.low, p.low), std::max(n.high, p.high), n.step};
+                // assert(n.step == p.step);
+                return {std::min(n.low, p.low), std::max(n.high, p.high), std::min(n.step, p.step)};
             }
             else if (y.high < zero)
             {
@@ -167,8 +167,8 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
 
                 UI n = and_interval(UI {x.sub(x.low, m_one)}, UI {y});
                 UI p = and_interval(UI {x.sub(zero, x.high)}, UI {y});
-                assert(n.step == p.step);
-                return {n.low, p.high, n.step};
+                // assert(n.step == p.step);
+                return {n.low, p.high, std::min(n.step, p.step)};
             }
             else
             {
@@ -192,8 +192,8 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
                 auto p1 = and_interval(UI {nx}, UI {py});
                 auto p2 = and_interval(UI {px}, UI {ny});
                 auto p3 = and_interval(UI {px}, UI {py});
-                assert((n.step == p1.step) && (n.step == p2.step) && (n.step == p3.step));
-                return {n.low, std::max({p1.high, p2.high, p3.high}), n.step};
+                // assert((n.step == p1.step) && (n.step == p2.step) && (n.step == p3.step));
+                return {n.low, std::max({p1.high, p2.high, p3.high}), std::max({n.step, p1.step, p2.step, p3.step})};
             }
         }
     }
@@ -433,8 +433,8 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
             {
                 I nx {xor_interval(UI {x.sub(x.low, m_one)}, UI {y})};
                 I px {xor_interval(UI {x.sub(zero, x.high)}, UI {y})};
-                assert(nx.step == px.step);
-                return {std::min(nx.low, px.low), std::max(nx.high, px.high), nx.step};
+                // assert(nx.step == px.step);
+                return {std::min(nx.low, px.low), std::max(nx.high, px.high), std::min(nx.step, px.step)};
             }
             else
             {
@@ -447,12 +447,12 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
                 I i2 {xor_interval(UI {nx}, UI {py})};
                 I i3 {xor_interval(UI {px}, UI {ny})};
                 I i4 {xor_interval(UI {px}, UI {py})};
-                assert((i1.step == i2.step) && (i2.step == i3.step) && (i3.step == i4.step));
+                // assert((i1.step == i2.step) && (i2.step == i3.step) && (i3.step == i4.step));
                 return
                 {
                     std::min({i1.low , i2.low , i3.low , i4.low }),
                     std::max({i1.high, i2.high, i3.high, i4.high}),
-                    i1.step
+                    std::min({i1.step, i2.step, i3.step, i4.step})
                 };
             }
         }
