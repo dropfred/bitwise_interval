@@ -10,6 +10,19 @@
 #include <cassert>
 
 template <typename T>
+auto safe_abs(T n)
+{
+    if constexpr (std::is_signed_v<T>)
+    {
+        return std::make_unsigned_t<T>(n >= 0 ? n : ~n + 1);
+    }
+    else
+    {
+        return n;
+    }
+}
+
+template <typename T>
 T mod(T a, T n)
 {
     auto m = a % n;

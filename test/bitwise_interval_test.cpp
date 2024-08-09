@@ -502,6 +502,24 @@ int usage(char const * file, int e = -1)
 
 int main(int argc, char const * argv[])
 {
+    // {
+    //     std::cout << safe_abs(INT_MAX) << std::endl;
+    //     std::cout << safe_abs(INT_MIN) << std::endl;
+
+    //     std::cout << +safe_abs(char(127)) << std::endl;
+    //     std::cout << +safe_abs(char(-128)) << std::endl;
+    // }
+
+    {
+        for (int i = -10; i <= 10; ++i)
+        {
+            // std::cout << i << " : " << mod(i, 5) << " / " << mod(safe_abs(i), 5U) << std::endl;
+            std::cout << i << " : " << (i % 5) << " / " << (safe_abs(i) % 5U) << " / " << mod(i, 5) << " / " << mod(safe_abs(i), 5U) << " / " << round_up(i, 5, 1) << " / " << round_up(safe_abs(i), 5U, 1U) << " / " << round_down(safe_abs(i), 5U, 1U) << std::endl;
+        }
+
+        return 0;
+    }
+
     //// Test<int> i {-3.5, 10LL}; // ko std::make_unsigned_t<double>, ok for 2nd constructor
     //{Test<int> i {-3, 10LL};}
     //{Test<int> i {-3, 10U};}
