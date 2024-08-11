@@ -10,11 +10,19 @@
 #include <cassert>
 
 template <typename T>
-auto safe_abs(T n)
+auto uabs(T n)
 {
     if constexpr (std::is_signed_v<T>)
     {
-        return std::make_unsigned_t<T>(n >= 0 ? n : ~n + 1);
+        using UT = std::make_unsigned_t<T>;
+        if (n >= 0)
+        {
+            return UT(n);
+        }
+        else
+        {
+            return UT(UT(~n) + 1U);
+        }
     }
     else
     {
@@ -22,24 +30,25 @@ auto safe_abs(T n)
     }
 }
 
+
 template <typename T>
-T mod(T a, T n)
+auto umod(T n, std::make_unsigned_t<T> d)
 {
-    auto m = a % n;
+    auto m = uabs(n) % d;
     if constexpr (std::is_signed_v<T>)
     {
-        if (m < 0)
+        if ((m != 0) && (n < 0))
         {
-            m += n;
+            m = d - m;
         }
     }
-    return T(m);
+    return std::make_unsigned_t<T>(m);
 }
 
 template <typename T>
 T round_up(T v, T step, T rem)
 {
-    T r = mod(v, step);
+    T r = umod(v, step);
     if (r <= rem)
     {
         v += rem - r;
@@ -54,14 +63,14 @@ T round_up(T v, T step, T rem)
 template <typename T>
 T round_down(T v, T step, T rem)
 {
-    T r = mod(v, step);
+    T r = umod(v, step);
     if (r >= rem)
     {
-        v -= (r - rem);
+        v -= r - rem;
     }
     else
     {
-        v -= (step + r) - rem;
+        v -= (step - rem) + r;
     }
     return v;
 }
@@ -74,23 +83,19 @@ struct Interval
     using UType = std::make_unsigned_t<T>;
     
     T low, high;
-    T step;
+    // T step;
+    UType step;
 
     // left unitialized
     Interval() {}
 
     template <typename X>
-    Interval(X low, X high, X step = X(1)) : low(T(low)), high(T(high)), step(T(step))
+    Interval(X low, X high, std::make_unsigned_t<X> step = X(1)) : low(T(low)), high(T(high)), step(UType(step))
     {
         assert(this->step != 0);
-        // TODO
-        // assert((this->low != this->high) || (this->step != T(1)));
-        if ((this->low == this->high) && (this->step != T(1)))
-        {
-            this->step = T(1);
-        }
+        assert((this->low != this->high) || (this->step == T(1))); // ???
         assert(this->low <= this->high);
-        assert(mod(this->low, this->step) == mod(this->high, this->step));
+        assert(umod(this->low, this->step) == umod(this->high, this->step));
     }
 
     template <typename X>
@@ -110,7 +115,7 @@ struct Interval
     Interval sub(T min, T max) const
     {
         assert((min >= low) && (max <= high));
-        T rem = mod(low, step);
+        T rem = umod(low, step);
         return {round_up(min, step, rem), round_down(max, step, rem), step};
     }
 };
@@ -140,9 +145,9 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
         using UT = std::make_unsigned_t<T>;
         using UI = Interval<UT>;
 
-        if ((x.high < zero) || (x.low >= zero))
+        if ((x.low >= zero) || (x.high < zero))
         {
-            if ((y.high < zero) || (y.low >= zero))
+            if ((y.low >= zero) || (y.high < zero))
             {
                 return and_interval(UI {x}, UI {y});
             }
@@ -158,8 +163,8 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
             // TODO: step
             if (y.low >= 0)
             {
-                // UI nx {x.low, last(T(-one), x.step, mod(x.low, x.step)), x.step};
-                // UI px {first(zero, x.step, mod(x.low, x.step)), x.high, x.step};
+                // UI nx {x.low, last(T(-one), x.step, umod(x.low, x.step)), x.step};
+                // UI px {first(zero, x.step, umod(x.low, x.step)), x.high, x.step};
                 // UI n = and_interval(nx, UI {y});
                 // UI p = and_interval(px, UI {y});
                 // return {std::min(n.low, p.low), std::max(n.high, p.high), n.step};
@@ -171,8 +176,8 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
             }
             else if (y.high < zero)
             {
-                // T last_x  = last(T(-one), x.step, mod(x.low, x.step));
-                // T first_x = first(zero, x.step, mod(x.low, x.step));
+                // T last_x  = last(T(-one), x.step, umod(x.low, x.step));
+                // T first_x = first(zero, x.step, umod(x.low, x.step));
                 // auto n = and_interval(UI {x.low, last_x, x.step}, UI {y.low, y.high, y.step});
                 // auto p = and_interval(UI {first_x, x.high, x.step}, UI {y.low, y.high, y.step});
                 // assert(n.step == p.step);
@@ -185,10 +190,10 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
             }
             else
             {
-                // T last_x  = last(T(-one), x.step, mod(x.low, x.step));
-                // T first_x = first(zero, x.step, mod(x.low, x.step));
-                // T last_y  = last(T(-one), y.step, mod(y.low, y.step));
-                // T first_y = first(zero, y.step, mod(y.low, y.step));
+                // T last_x  = last(T(-one), x.step, umod(x.low, x.step));
+                // T first_x = first(zero, x.step, umod(x.low, x.step));
+                // T last_y  = last(T(-one), y.step, umod(y.low, y.step));
+                // T first_y = first(zero, y.step, umod(y.low, y.step));
                 // auto n  = and_interval(UI {x.low, last_x, x.step}, UI {y.low, last_y, y.step});
                 // auto p1 = and_interval(UI {x.low, last_x, x.step}, UI {first_y, y.high, y.step});
                 // auto p2 = and_interval(UI {first_x, x.high, x.step}, UI {y.low, last_y, y.step});
@@ -336,6 +341,11 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
             }
         }
 
+        if (low == high)
+        {
+            step = one;
+        }
+
         return {low, high, step};
     }
 }
@@ -352,9 +362,9 @@ Interval<T> or_interval(Interval<T> const & x, Interval<T> const & y)
         using UT = std::make_unsigned_t<T>;
         using UI = Interval<UT>;
 
-        if ((x.high < zero) || (x.low >= zero))
+        if ((x.low >= zero) || (x.high < zero))
         {
-            if ((y.high < zero) || (y.low >= zero))
+            if ((y.low >= zero) || (y.high < zero))
             {
                 return or_interval(UI {x}, UI {y});
             }
@@ -426,9 +436,9 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
         using I  = Interval<T>;
         using UI = Interval<UT>;
 
-        if ((x.high < zero) || (x.low >= zero))
+        if ((x.low >= zero) || (x.high < zero))
         {
-            if ((y.high < zero) || (y.low >= zero))
+            if ((y.low >= zero) || (y.high < zero))
             {
                 return xor_interval(UI {x}, UI {y});
             }
@@ -456,16 +466,16 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
                 I ny = y.sub(y.low, m_one);
                 I py = y.sub(zero, y.high);
 
-                I i1 {xor_interval(UI {nx}, UI {ny})};
-                I i2 {xor_interval(UI {nx}, UI {py})};
-                I i3 {xor_interval(UI {px}, UI {ny})};
-                I i4 {xor_interval(UI {px}, UI {py})};
-                // assert((i1.step == i2.step) && (i2.step == i3.step) && (i3.step == i4.step));
+                I nn {xor_interval(UI {nx}, UI {ny})};
+                I np {xor_interval(UI {nx}, UI {py})};
+                I pn {xor_interval(UI {px}, UI {ny})};
+                I pp {xor_interval(UI {px}, UI {py})};
+                // assert((nn.step == np.step) && (np.step == pn.step) && (pn.step == pp.step));
                 return
                 {
-                    std::min({i1.low , i2.low , i3.low , i4.low }),
-                    std::max({i1.high, i2.high, i3.high, i4.high}),
-                    std::min({i1.step, i2.step, i3.step, i4.step})
+                    std::min({nn.low , np.low , pn.low , pp.low }),
+                    std::max({nn.high, np.high, pn.high, pp.high}),
+                    std::min({nn.step, np.step, pn.step, pp.step})
                 };
             }
         }
@@ -592,6 +602,11 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
                     }
                 }
             }
+        }
+
+        if (low == high)
+        {
+            step = one;
         }
 
         return {low, high, step};

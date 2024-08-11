@@ -163,6 +163,8 @@ namespace
     template <typename T>
     bool test_interval(Interval<T> const x, Interval<T> const y, bool trace = true)
     {
+        using UT = Interval<T>::UType;
+
         std::cout << "# x = " << x << "\n# y = " << y << std::endl;
 
         auto c_not_x = not_interval(x);
@@ -211,9 +213,9 @@ namespace
 
         struct
         {
-            T rem;
+            UT rem;
             bool ok = true;
-        } r_and {mod(c_and.low, c_and.step)}, r_or {mod(c_or.low, c_or.step)}, r_xor {mod(c_xor.low, c_xor.step)};
+        } r_and {umod(c_and.low, c_and.step)}, r_or {umod(c_or.low, c_or.step)}, r_xor {umod(c_xor.low, c_xor.step)};
 
         Interval<T> b_and, b_or, b_xor;
 
@@ -234,9 +236,9 @@ namespace
                 }
             }
 
-            std::size_t get_step() const
+            UT get_step() const
             {
-                std::size_t s = 1;
+                UT s = 1;
                 if (vs.size() > 1)
                 {
                     auto j = vs.begin();
@@ -267,7 +269,7 @@ namespace
                 {
                     b_and.high = r;
                 }
-                if (mod(r, c_and.step) != r_and.rem)
+                if (umod(r, c_and.step) != r_and.rem)
                 {
                     r_and.ok = false;
                 }
@@ -282,7 +284,7 @@ namespace
                 {
                     b_or.high = r;
                 }
-                if (mod(r, c_or.step) != r_or.rem)
+                if (umod(r, c_or.step) != r_or.rem)
                 {
                     r_or.ok = false;
                 }
@@ -297,7 +299,7 @@ namespace
                 {
                     b_xor.high = r;
                 }
-                if (mod(r, c_xor.step) != r_xor.rem)
+                if (umod(r, c_xor.step) != r_xor.rem)
                 {
                     r_xor.ok = false;
                 }
@@ -329,12 +331,10 @@ namespace
             {
                 return
                 (
-                    r && (a == b) ? "OK "s
-                    // :   r && (a >= b) ? std::format("OVER ({} / {} / {}) ", distance(a.low, a.high), distance(b.low, b.high), distance(a.low, a.high) - distance(b.low, b.high))
-                    :   r && (a >= b) ? "OVER ("s + std::to_string(distance(a.low, a.high) - distance(b.low, b.high)) + ") "s
-                :   (a == b)      ? "STEP "s
-                :   (a >= b)      ? "STEP+OVER "s
-                :                   "KO "s
+                    r && (a == b) ? "OK "s :
+                    //r && (a >= b) ? std::format("OVER ({}) ", distance(a.low, a.high) - distance(b.low, b.high)) :
+                    r && (a >= b) ? "OVER ("s + std::to_string(distance(a.low, a.high) - distance(b.low, b.high)) + ") "s :
+                                    "KO "s
                 );
             };
             std::cout << ok(c_not_x, b_not_x, true) << "not x : " << c_not_x << " : " << b_not_x << std::endl;
@@ -457,8 +457,6 @@ namespace
 
             T b_high = T(b_low + b_size * b_step);
 
-            std::cout << "DBG A : " << +a_low << " / " << +a_high << " / " << +a_step << " / " << +T(a_step) << std::endl;
-            std::cout << "DBG B : " << +b_low << " / " << +b_high << " / " << +b_step << " / " << +T(b_step) << std::endl;
             if (!test_interval(Interval<T> {a_low, a_high, T(a_step)}, Interval<T> {b_low, b_high, T(b_step)}, true))
             {
                 break;
@@ -503,26 +501,12 @@ int usage(char const * file, int e = -1)
 int main(int argc, char const * argv[])
 {
     // {
-    //     std::cout << safe_abs(INT_MAX) << std::endl;
-    //     std::cout << safe_abs(INT_MIN) << std::endl;
+    //     std::cout << std::hex << uabs(INT_MAX) << std::endl;
+    //     std::cout << std::hex << uabs(INT_MIN) << std::endl;
 
-    //     std::cout << +safe_abs(char(127)) << std::endl;
-    //     std::cout << +safe_abs(char(-128)) << std::endl;
+    //     std::cout << +uabs(char(CHAR_MAX)) << std::endl;
+    //     std::cout << +uabs(char(CHAR_MIN)) << std::endl;
     // }
-
-    {
-        for (int i = -10; i <= 10; ++i)
-        {
-            // std::cout << i << " : " << mod(i, 5) << " / " << mod(safe_abs(i), 5U) << std::endl;
-            std::cout << i << " : " << (i % 5) << " / " << (safe_abs(i) % 5U) << " / " << mod(i, 5) << " / " << mod(safe_abs(i), 5U) << " / " << round_up(i, 5, 1) << " / " << round_up(safe_abs(i), 5U, 1U) << " / " << round_down(safe_abs(i), 5U, 1U) << std::endl;
-        }
-
-        return 0;
-    }
-
-    //// Test<int> i {-3.5, 10LL}; // ko std::make_unsigned_t<double>, ok for 2nd constructor
-    //{Test<int> i {-3, 10LL};}
-    //{Test<int> i {-3, 10U};}
 
     //assert(round_up(0, 3, 1) == 1);
     //assert(round_up(1, 3, 1) == 1);
