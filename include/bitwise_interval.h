@@ -81,16 +81,19 @@ struct Interval
 {
     using Type = T;
     using UType = std::make_unsigned_t<T>;
-    
-    T low, high;
-    // T step;
-    UType step;
 
+    // TODO
+    // Type low, high;
+    // UType step;
+
+    T low, high;
+    T step;
+    
     // left unitialized
     Interval() {}
 
     template <typename X>
-    Interval(X low, X high, std::make_unsigned_t<X> step = X(1)) : low(T(low)), high(T(high)), step(UType(step))
+    Interval(X low, X high, X step = X(1)) : low(T(low)), high(T(high)), step(T(step))
     {
         assert(this->step != 0);
         assert((this->low != this->high) || (this->step == T(1))); // ???
