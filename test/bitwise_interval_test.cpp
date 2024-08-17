@@ -1,5 +1,21 @@
 #include <bitwise_interval.h>
 
+// template< class T >
+// using make_itype_t = typename Interval<T>::Type;
+
+// template< class T >
+// using make_uitype_t = typename Interval<T>::UType;
+
+template <typename T>
+void test(Interval<T> const & i)
+{
+    // using UT = typename Interval<T>::UType;
+    // using UT = make_utype_t<T>;
+    auto s = i.sub(1, 9);
+}
+
+// #include <bitwise_interval.h>
+
 #include <iostream>
 #include <iomanip>
 #include <string>
@@ -206,6 +222,7 @@ namespace
             }
             if (j == y.high) break;
         }
+        // return ((c_not_x == b_not_x) && (c_not_y == b_not_y));
 
         auto c_and = and_interval(x, y);
         auto c_or  = or_interval(x, y);
@@ -215,7 +232,7 @@ namespace
         {
             UT rem;
             bool ok = true;
-        } r_and {umod(c_and.low, c_and.step)}, r_or {umod(c_or.low, c_or.step)}, r_xor {umod(c_xor.low, c_xor.step)};
+        } r_and {Interval<T>::umod(c_and.low, c_and.step)}, r_or {Interval<T>::umod(c_or.low, c_or.step)}, r_xor {Interval<T>::umod(c_xor.low, c_xor.step)};
 
         Interval<T> b_and, b_or, b_xor;
 
@@ -269,7 +286,7 @@ namespace
                 {
                     b_and.high = r;
                 }
-                if (umod(r, c_and.step) != r_and.rem)
+                if (Interval<T>::umod(r, c_and.step) != r_and.rem)
                 {
                     r_and.ok = false;
                 }
@@ -284,7 +301,7 @@ namespace
                 {
                     b_or.high = r;
                 }
-                if (umod(r, c_or.step) != r_or.rem)
+                if (Interval<T>::umod(r, c_or.step) != r_or.rem)
                 {
                     r_or.ok = false;
                 }
@@ -299,7 +316,7 @@ namespace
                 {
                     b_xor.high = r;
                 }
-                if (umod(r, c_xor.step) != r_xor.rem)
+                if (Interval<T>::umod(r, c_xor.step) != r_xor.rem)
                 {
                     r_xor.ok = false;
                 }
@@ -323,17 +340,22 @@ namespace
             b_xor.step = c_xor.step;
         }
 
-        bool ok = (c_and >= b_and) && r_and.ok && (c_or >= b_or) && r_or.ok && (c_xor >= b_xor) && r_xor.ok;
+        bool ok = (c_not_x >= b_not_x) && (c_not_y >= b_not_y) && (c_and >= b_and) && r_and.ok && (c_or >= b_or) && r_or.ok && (c_xor >= b_xor) && r_xor.ok;
 
         if (!ok || trace)
         {
             auto ok = [] (Interval<T> const & a, Interval<T> const & b, bool r)
             {
+                //auto d1 = distance(a.low, a.high);
+                //auto d2 = distance(b.low, b.high);
+                //auto d3 = distance(a.low, a.high) - distance(b.low, b.high);
+                //auto d4 = std::abs(d3);
                 return
                 (
                     r && (a == b) ? "OK "s :
                     //r && (a >= b) ? std::format("OVER ({}) ", distance(a.low, a.high) - distance(b.low, b.high)) :
-                    r && (a >= b) ? "OVER ("s + std::to_string(distance(a.low, a.high) - distance(b.low, b.high)) + ") "s :
+                    r && (a >= b) ? "OVER ("s + std::to_string(distance(distance(b.low, b.high), distance(a.low, a.high))) + ") "s :
+                    //r && (a >= b) ? "OVER ("s + std::to_string(distance(a.low, a.high) - distance(b.low, b.high)) + ") "s :
                                     "KO "s
                 );
             };
@@ -404,10 +426,10 @@ namespace
             {
                 a_step = rand(UT(1), a_dist);
             }
-            if constexpr (std::is_signed_v<T>)
-            {
-                if (T(a_step) < 0) continue;
-            }
+            //if constexpr (std::is_signed_v<T>)
+            //{
+            //    if (T(a_step) < 0) continue;
+            //}
 
             UT a_size = UT(a_dist / a_step);
             if constexpr (sizeof (UT) > 2)
@@ -439,10 +461,10 @@ namespace
             {
                 b_step = rand(UT(1), b_dist);
             }
-            if constexpr (std::is_signed_v<T>)
-            {
-                if (T(b_step) < 0) continue;
-            }
+            //if constexpr (std::is_signed_v<T>)
+            //{
+            //    if (T(b_step) < 0) continue;
+            //}
 
             UT b_size = UT(b_dist / b_step);
             if constexpr (sizeof (UT) > 2)
@@ -457,7 +479,7 @@ namespace
 
             T b_high = T(b_low + b_size * b_step);
 
-            if (!test_interval(Interval<T> {a_low, a_high, T(a_step)}, Interval<T> {b_low, b_high, T(b_step)}, true))
+            if (!test_interval(Interval<T> {a_low, a_high, a_step}, Interval<T> {b_low, b_high, b_step}, true))
             {
                 break;
             }
@@ -500,6 +522,28 @@ int usage(char const * file, int e = -1)
 
 int main(int argc, char const * argv[])
 {
+    {
+        using S8 = Interval<std::int8_t>;
+
+        auto m1 = S8::umod(-33, 8);
+        auto m2 = S8::umod(103, 8);
+    }
+    {
+        using U8 = Interval<std::uint8_t>;
+        U8 a {1, 10};
+        U8 b {2, 20};
+        U8 ba = and_interval(a, b);
+        U8 bo = or_interval(a, b);
+        U8 bx = xor_interval(a, b);
+    }
+    {
+        using S8 = Interval<std::int8_t>;
+        S8 a {1, 10};
+        S8 b {2, 20};
+        S8 ba = and_interval(a, b);
+        S8 bo = or_interval(a, b);
+        S8 bx = xor_interval(a, b);
+    }
     // {
     //     std::cout << std::hex << uabs(INT_MAX) << std::endl;
     //     std::cout << std::hex << uabs(INT_MIN) << std::endl;
@@ -595,29 +639,29 @@ int main(int argc, char const * argv[])
     }
     else if ((argc == 6) || (argc == 8))
     {
-        static std::map<std::string, std::function<void (char const **, bool)>> const tfs =
-        {
-            {"s8" , test<int8_t>},
-            {"s16", test<int16_t>},
-            {"s32", test<int32_t>},
-            {"s64", test<int64_t>},
-            {"u8" , test<uint8_t>},
-            {"u16", test<uint16_t>},
-            {"u32", test<uint32_t>},
-            {"u64", test<uint64_t>},
-            {"s"  , test<int>},
-            {"u"  , test<unsigned int>}
-        };
+        //static std::map<std::string, std::function<void (char const **, bool)>> const tfs =
+        //{
+        //    {"s8" , test<int8_t>},
+        //    {"s16", test<int16_t>},
+        //    {"s32", test<int32_t>},
+        //    {"s64", test<int64_t>},
+        //    {"u8" , test<uint8_t>},
+        //    {"u16", test<uint16_t>},
+        //    {"u32", test<uint32_t>},
+        //    {"u64", test<uint64_t>},
+        //    {"s"  , test<int>},
+        //    {"u"  , test<unsigned int>}
+        //};
 
-        if (auto f = tfs.find(args[0]); f != tfs.end())
-        {
-            f->second(args + 1, (argc == 8));
-        }
-        else
-        {
-            std::cerr << "invalid type '" << argv[1] << "'\n";
-            return usage(argv[0]);
-        }
+        //if (auto f = tfs.find(args[0]); f != tfs.end())
+        //{
+        //    f->second(args + 1, (argc == 8));
+        //}
+        //else
+        //{
+        //    std::cerr << "invalid type '" << argv[1] << "'\n";
+        //    return usage(argv[0]);
+        //}
     }
     else
     {
