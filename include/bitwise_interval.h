@@ -2,12 +2,42 @@
 #define BITWISE_INTERVAL_H
 
 #include <type_traits>
-#include <climits>
 #include <algorithm>
 #include <numeric>
-// #include <bit>
-// #include <concepts>
+#include <climits>
 #include <cassert>
+
+// utils
+template <typename T>
+auto uabs(T n)
+{
+    using UT = std::make_unsigned_t<T>;
+    UT un = UT(n);
+    if constexpr (std::is_signed_v<T>)
+    {
+        if (n < 0)
+        {
+            un = ~un + 1U;
+        }
+    }
+    return un;
+}
+
+template <typename T, typename UT>
+auto umod(T n, UT d)
+{
+    static_assert(std::is_unsigned_v<UT>);
+    auto m = uabs(n);
+    m %= d;
+    if constexpr (std::is_signed_v<T>)
+    {
+        if ((m != 0U) && (n < 0))
+        {
+            m = d - m;
+        }
+    }
+    return m;
+}
 
 template <typename T>
 struct Interval
@@ -46,38 +76,6 @@ struct Interval
     Interval & operator = (Interval<X> const & i)
     {
         return (*this = Interval {i});
-    }
-
-    static UType uabs(Type n)
-    {
-        if constexpr (std::is_signed_v<Type>)
-        {
-            if (n >= 0)
-            {
-                return UType(n);
-            }
-            else
-            {
-                return UType(~UType(n) + 1U);
-            }
-        }
-        else
-        {
-            return n;
-        }
-    }
-
-    static UType umod(Type n, UType d)
-    {
-        UType m = uabs(n) % d;
-        if constexpr (std::is_signed_v<Type>)
-        {
-            if ((m != 0U) && (n < 0))
-            {
-                m = d - m;
-            }
-        }
-        return m;
     }
 
     Type round_up(Type v) const
@@ -185,6 +183,9 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
         T low  = zero;
         T high = zero;
 
+        auto low_x = x, high_x = x;
+        auto low_y = y, high_y = y;
+
         // T step_x = std::has_single_bit(x.step) ? x.step : one;
         // T step_y = std::has_single_bit(y.step) ? y.step : one;
         T step_x = ((x.step & (x.step - one)) == zero) ? x.step : one;
@@ -196,12 +197,10 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
         T rem_x = ~mask_x & x.low;
         T rem_y = ~mask_y & y.low;
 
-        T step = ((step_x > step_y) && (rem_x == zero)) ? step_x
-            : ((step_y > step_x) && (rem_y == zero)) ? step_y
-            : std::min(step_x, step_y);
+        T step = ((step_x > step_y) && ((rem_x == zero) || (y.low == y.high))) ? step_x
+               : ((step_y > step_x) && ((rem_y == zero) || (x.low == x.high))) ? step_y
+               : std::min(step_x, step_y);
 
-        auto low_x = x, high_x = x;
-        auto low_y = y, high_y = y;
 
         for (T b = msb; b != zero; b >>= one)
         {

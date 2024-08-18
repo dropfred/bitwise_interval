@@ -1,21 +1,5 @@
 #include <bitwise_interval.h>
 
-// template< class T >
-// using make_itype_t = typename Interval<T>::Type;
-
-// template< class T >
-// using make_uitype_t = typename Interval<T>::UType;
-
-template <typename T>
-void test(Interval<T> const & i)
-{
-    // using UT = typename Interval<T>::UType;
-    // using UT = make_utype_t<T>;
-    auto s = i.sub(1, 9);
-}
-
-// #include <bitwise_interval.h>
-
 #include <iostream>
 #include <iomanip>
 #include <string>
@@ -232,7 +216,7 @@ namespace
         {
             UT rem;
             bool ok = true;
-        } r_and {Interval<T>::umod(c_and.low, c_and.step)}, r_or {Interval<T>::umod(c_or.low, c_or.step)}, r_xor {Interval<T>::umod(c_xor.low, c_xor.step)};
+        } r_and {umod(c_and.low, c_and.step)}, r_or {umod(c_or.low, c_or.step)}, r_xor {umod(c_xor.low, c_xor.step)};
 
         Interval<T> b_and, b_or, b_xor;
 
@@ -286,7 +270,7 @@ namespace
                 {
                     b_and.high = r;
                 }
-                if (Interval<T>::umod(r, c_and.step) != r_and.rem)
+                if (umod(r, c_and.step) != r_and.rem)
                 {
                     r_and.ok = false;
                 }
@@ -301,7 +285,7 @@ namespace
                 {
                     b_or.high = r;
                 }
-                if (Interval<T>::umod(r, c_or.step) != r_or.rem)
+                if (umod(r, c_or.step) != r_or.rem)
                 {
                     r_or.ok = false;
                 }
@@ -316,7 +300,7 @@ namespace
                 {
                     b_xor.high = r;
                 }
-                if (Interval<T>::umod(r, c_xor.step) != r_xor.rem)
+                if (umod(r, c_xor.step) != r_xor.rem)
                 {
                     r_xor.ok = false;
                 }
@@ -346,10 +330,6 @@ namespace
         {
             auto ok = [] (Interval<T> const & a, Interval<T> const & b, bool r)
             {
-                //auto d1 = distance(a.low, a.high);
-                //auto d2 = distance(b.low, b.high);
-                //auto d3 = distance(a.low, a.high) - distance(b.low, b.high);
-                //auto d4 = std::abs(d3);
                 return
                 (
                     r && (a == b) ? "OK "s :
@@ -490,43 +470,28 @@ namespace
     }
 }
 
-template <typename T>
-struct Test
-{
-    using Type = T;
-    using UType = std::make_unsigned_t<T>;
-
-    Type s;
-    UType u;
-
-    // template <typename X>
-    // Test(X s, std::make_unsigned_t<X> u) : s(Type(s)), u(UType(u)) {}
-
-    template <typename X, typename UX>
-    Test(X s, UX u) : s(Type(s)), u(UType(u))
-    {
-        // assert(s >= std::numeric_limits<Type>::min());
-        // assert(s <= std::numeric_limits<Type>::max());
-        if constexpr (std::is_signed_v<T>)
-        {
-            assert(u >= UX(0));
-        }
-    }
-};
-
 int usage(char const * file, int e = -1)
 {
     std::cerr << "usage: " << file << "[-h] [-d] [-s1] [-s2] [-sa] type [x.low x.high [x_step] y.low y.high [y_step]]\n";
     return -e;
 }
 
+/*
+# x = [00101001 (41), 01101101 (109)]/2
+# y = [10100111 (167), 10100111 (167)]
+OK not x : [10010010 (146), 11010110 (214)]/2 : [10010010 (146), 11010110 (214)]/2
+OK not y : [01011000 (88), 01011000 (88)] : [01011000 (88), 01011000 (88)]
+OVER (0) and x y : [00000001 (1), 00100111 (39)] : [00000001 (1), 00100111 (39)]/2
+OVER (0) or x y : [10101111 (175), 11111111 (255)]/2 : [10101111 (175), 11111111 (255)]/8
+OVER (1) xor x y : [10001000 (136), 11111111 (255)] : [10001000 (136), 11111110 (254)]/2
+*/
 int main(int argc, char const * argv[])
 {
     {
         using S8 = Interval<std::int8_t>;
 
-        auto m1 = S8::umod(-33, 8);
-        auto m2 = S8::umod(103, 8);
+        auto m1 = umod(-33, 8U);
+        auto m2 = umod(103, 8U);
     }
     {
         using U8 = Interval<std::uint8_t>;
@@ -639,29 +604,30 @@ int main(int argc, char const * argv[])
     }
     else if ((argc == 6) || (argc == 8))
     {
-        //static std::map<std::string, std::function<void (char const **, bool)>> const tfs =
-        //{
-        //    {"s8" , test<int8_t>},
-        //    {"s16", test<int16_t>},
-        //    {"s32", test<int32_t>},
-        //    {"s64", test<int64_t>},
-        //    {"u8" , test<uint8_t>},
-        //    {"u16", test<uint16_t>},
-        //    {"u32", test<uint32_t>},
-        //    {"u64", test<uint64_t>},
-        //    {"s"  , test<int>},
-        //    {"u"  , test<unsigned int>}
-        //};
+        std::function<void (char const **, bool)> dbg = test<int8_t>;
+        static std::map<std::string, std::function<void (char const **, bool)>> const tfs =
+        {
+            {"s8" , test<int8_t>},
+            {"s16", test<int16_t>},
+            {"s32", test<int32_t>},
+            {"s64", test<int64_t>},
+            {"u8" , test<uint8_t>},
+            {"u16", test<uint16_t>},
+            {"u32", test<uint32_t>},
+            {"u64", test<uint64_t>},
+            {"s"  , test<int>},
+            {"u"  , test<unsigned int>}
+        };
 
-        //if (auto f = tfs.find(args[0]); f != tfs.end())
-        //{
-        //    f->second(args + 1, (argc == 8));
-        //}
-        //else
-        //{
-        //    std::cerr << "invalid type '" << argv[1] << "'\n";
-        //    return usage(argv[0]);
-        //}
+        if (auto f = tfs.find(args[0]); f != tfs.end())
+        {
+            f->second(args + 1, (argc == 8));
+        }
+        else
+        {
+            std::cerr << "invalid type '" << argv[1] << "'\n";
+            return usage(argv[0]);
+        }
     }
     else
     {
