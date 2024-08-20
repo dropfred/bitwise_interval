@@ -49,7 +49,16 @@ namespace
     template <typename T>
     bool operator >= (Interval<T> const & a, Interval<T> const & b)
     {
-        return ((a.low <= b.low) && (a.high >= b.high) && (a.step <= b.step) && (std::gcd(a.step, b.step) == a.step));
+        return
+        (
+            (a.low <= b.low) &&
+            (a.high >= b.high) &&
+            (umod(a.low, a.step) == umod(b.low, a.step)) &&
+            (
+                b.is_singleton() ||
+                ((a.step <= b.step) && (std::gcd(a.step, b.step) == a.step))
+            )
+        );
     }
 
     template <typename T> struct Dbg

@@ -57,7 +57,7 @@ struct Interval
         assert(this->low <= this->high);
         assert(umod(this->low, this->step) == umod(this->high, this->step));
         // assert((this->low != this->high) || (this->step == 1U));
-        if (this->low == this->high)
+        if (is_singleton())
         {
             this->step = 1U;
         }
@@ -113,6 +113,11 @@ struct Interval
     {
         assert((low >= this->low) && (high <= this->high));
         return {round_up(low), round_down(high), step};
+    }
+
+    bool is_singleton() const
+    {
+        return (low == high);
     }
 };
 
