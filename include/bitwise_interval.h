@@ -159,7 +159,13 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
             {
                 I nx = and_interval(UI {x.sub(x.low, m_one)}, UI {y});
                 I px = and_interval(UI {x.sub(zero, x.high)}, UI {y});
-                return {std::min(nx.low, px.low), std::max(nx.high, px.high), std::min(nx.step, px.step)};
+                /*
+                # x = [11111110 (-2), 00110010 (50)]/52
+                # y = [01011101 (93), 01110101 (117)]/8
+                Assertion failed: umod(this->low, this->step) == umod(this->high, this->step), file E:\Fred\Dev\bitwise_interval\include\bitwise_interval.h, line 58                                
+                */
+                // return {std::min(nx.low, px.low), std::max(nx.high, px.high), std::min(nx.step, px.step)};
+                return {std::min(nx.low, px.low), std::max(nx.high, px.high), UT(1U)};
             }
             else
             {
@@ -172,11 +178,17 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
                 I np = and_interval(UI {nx}, UI {py});
                 I pn = and_interval(UI {px}, UI {ny});
                 I pp = and_interval(UI {px}, UI {py});
+                // return
+                // {
+                //     std::min({nn.low , np.low , pn.low , pp.low }),
+                //     std::max({nn.high, np.high, pn.high, pp.high}),
+                //     std::min({nn.step, np.step, pn.step, pp.step})
+                // };
                 return
                 {
                     std::min({nn.low , np.low , pn.low , pp.low }),
                     std::max({nn.high, np.high, pn.high, pp.high}),
-                    std::min({nn.step, np.step, pn.step, pp.step})
+                    UT(1U)
                 };
             }
         }
