@@ -214,10 +214,10 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
         T rem_x = ~mask_x & x.low;
         T rem_y = ~mask_y & y.low;
 
-        T step = ((step_x > step_y) && ((rem_x == zero) || (y.low == y.high))) ? step_x
-               : ((step_y > step_x) && ((rem_y == zero) || (x.low == x.high))) ? step_y
+        // TODO
+        T step = ((step_x > step_y) && ((rem_x == zero) || y.is_singleton())) ? step_x
+               : ((step_y > step_x) && ((rem_y == zero) || x.is_singleton())) ? step_y
                : std::min(step_x, step_y);
-
 
         for (T b = msb; b != zero; b >>= one)
         {
@@ -367,7 +367,8 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
             {
                 I nx = xor_interval(UI {x.sub(x.low, m_one)}, UI {y});
                 I px = xor_interval(UI {x.sub(zero, x.high)}, UI {y});
-                return {std::min(nx.low, px.low), std::max(nx.high, px.high), std::min(nx.step, px.step)};
+                // return {std::min(nx.low, px.low), std::max(nx.high, px.high), std::min(nx.step, px.step)};
+                return {std::min(nx.low, px.low), std::max(nx.high, px.high), UT(1U)};
             }
             else
             {
@@ -380,11 +381,17 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
                 I np = xor_interval(UI {nx}, UI {py});
                 I pn = xor_interval(UI {px}, UI {ny});
                 I pp = xor_interval(UI {px}, UI {py});
+                // return
+                // {
+                //     std::min({nn.low , np.low , pn.low , pp.low }),
+                //     std::max({nn.high, np.high, pn.high, pp.high}),
+                //     std::min({nn.step, np.step, pn.step, pp.step})
+                // };
                 return
                 {
                     std::min({nn.low , np.low , pn.low , pp.low }),
                     std::max({nn.high, np.high, pn.high, pp.high}),
-                    std::min({nn.step, np.step, pn.step, pp.step})
+                    UT(1U)
                 };
             }
         }
