@@ -124,7 +124,7 @@ namespace
         using UT = std::make_unsigned_t<T>;
 
         return (a >= 0) ? UT(b - a)
-             : (b <  0) ? UT(UT(a) - UT(b))
+             : (b <  0) ? UT(UT(b) - UT(a))
              :            UT(UT(~a) + 1U + UT(b));
     }
 
@@ -339,6 +339,9 @@ namespace
         {
             auto ok = [] (Interval<T> const & a, Interval<T> const & b, bool r)
             {
+                // std::cout << "distance(a) : " << +distance(a.low, a.high) << std::endl;
+                // std::cout << "distance(b) : " << +distance(b.low, b.high) << std::endl;
+                // std::cout << "distance(a, b) : " << +distance(distance(b.low, b.high), distance(a.low, a.high)) << std::endl;
                 return
                 (
                     r && (a == b) ? "OK "s :
@@ -486,38 +489,49 @@ int usage(char const * file, int e = -1)
 }
 
 /*
-# x = [00101001 (41), 01101101 (109)]/2
-# y = [10100111 (167), 10100111 (167)]
-OK not x : [10010010 (146), 11010110 (214)]/2 : [10010010 (146), 11010110 (214)]/2
-OK not y : [01011000 (88), 01011000 (88)] : [01011000 (88), 01011000 (88)]
-OVER (0) and x y : [00000001 (1), 00100111 (39)] : [00000001 (1), 00100111 (39)]/2
-OVER (0) or x y : [10101111 (175), 11111111 (255)]/2 : [10101111 (175), 11111111 (255)]/8
-OVER (1) xor x y : [10001000 (136), 11111111 (255)] : [10001000 (136), 11111110 (254)]/2
+# x = [10000100 (-124), 10110110 (-74)]/50
+# y = [10011101 (-99), 10011101 (-99)]
+OK not x : [01001001 (73), 01111011 (123)]/50 : [01001001 (73), 01111011 (123)]/50
+OK not y : [01100010 (98), 01100010 (98)] : [01100010 (98), 01100010 (98)]
+OVER (243) and x y : [10000000 (-128), 10011101 (-99)] : [10000100 (-124), 10010100 (-108)]/16
+OVER (0) or x y : [10011101 (-99), 10111111 (-65)] : [10011101 (-99), 10111111 (-65)]/34
+OVER (45) xor x y : [00000000 (0), 00111111 (63)] : [00011001 (25), 00101011 (43)]/18
 */
 int main(int argc, char const * argv[])
 {
-    {
-        using S8 = Interval<std::int8_t>;
+    // {
+    //     using S8 = std::int8_t;
+    //     std::cout << distance(-2, -1) << std::endl;
+    //     std::cout << distance(1, 2) << std::endl;
+    //     std::cout << distance(-20, -10) << std::endl;
+    //     std::cout << distance(10, 20) << std::endl;
+    //     std::cout << distance(-1, 1) << std::endl;
+    //     std::cout << +distance(S8(-128), S8(-99)) << std::endl;
+    //     std::cout << +distance(S8(-124), S8(-108)) << std::endl;
+    //     return 0;
+    // }
+    // {
+    //     using S8 = Interval<std::int8_t>;
 
-        auto m1 = umod(-33, 8U);
-        auto m2 = umod(103, 8U);
-    }
-    {
-        using U8 = Interval<std::uint8_t>;
-        U8 a {1, 10};
-        U8 b {2, 20};
-        U8 ba = and_interval(a, b);
-        U8 bo = or_interval(a, b);
-        U8 bx = xor_interval(a, b);
-    }
-    {
-        using S8 = Interval<std::int8_t>;
-        S8 a {1, 10};
-        S8 b {2, 20};
-        S8 ba = and_interval(a, b);
-        S8 bo = or_interval(a, b);
-        S8 bx = xor_interval(a, b);
-    }
+    //     auto m1 = umod(-33, 8U);
+    //     auto m2 = umod(103, 8U);
+    // }
+    // {
+    //     using U8 = Interval<std::uint8_t>;
+    //     U8 a {1, 10};
+    //     U8 b {2, 20};
+    //     U8 ba = and_interval(a, b);
+    //     U8 bo = or_interval(a, b);
+    //     U8 bx = xor_interval(a, b);
+    // }
+    // {
+    //     using S8 = Interval<std::int8_t>;
+    //     S8 a {1, 10};
+    //     S8 b {2, 20};
+    //     S8 ba = and_interval(a, b);
+    //     S8 bo = or_interval(a, b);
+    //     S8 bx = xor_interval(a, b);
+    // }
     // {
     //     std::cout << std::hex << uabs(INT_MAX) << std::endl;
     //     std::cout << std::hex << uabs(INT_MIN) << std::endl;
