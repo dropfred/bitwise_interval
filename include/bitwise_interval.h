@@ -205,8 +205,10 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
 
         // T step_x = std::has_single_bit(x.step) ? x.step : one;
         // T step_y = std::has_single_bit(y.step) ? y.step : one;
-        T step_x = ((x.step & (x.step - one)) == zero) ? x.step : one;
-        T step_y = ((y.step & (y.step - one)) == zero) ? y.step : one;
+        // T step_x = ((x.step & (x.step - one)) == zero) ? x.step : one;
+        // T step_y = ((y.step & (y.step - one)) == zero) ? y.step : one;
+        T step_x = one; for (T s = x.step; (s & one) == zero; s >>= 1) {step_x <<= 1;}
+        T step_y = one; for (T s = y.step; (s & one) == zero; s >>= 1) {step_y <<= 1;}
 
         T mask_x = ~(step_x - one);
         T mask_y = ~(step_y - one);
@@ -405,8 +407,10 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
 
         // T step_x = std::has_single_bit(x.step) ? x.step : one;
         // T step_y = std::has_single_bit(y.step) ? y.step : one;
-        T step_x = ((x.step & (x.step - one)) == zero) ? x.step : one;
-        T step_y = ((y.step & (y.step - one)) == zero) ? y.step : one;
+        // T step_x = ((x.step & (x.step - one)) == zero) ? x.step : one;
+        // T step_y = ((y.step & (y.step - one)) == zero) ? y.step : one;
+        T step_x = one; for (T s = x.step; (s & one) == zero; s >>= 1) {step_x <<= 1;}
+        T step_y = one; for (T s = y.step; (s & one) == zero; s >>= 1) {step_y <<= 1;}
 
         // TODO
         T step = std::min(step_x, step_y);

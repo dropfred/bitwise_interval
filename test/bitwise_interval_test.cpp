@@ -99,10 +99,17 @@ namespace
     template <typename T>
     std::ostream & operator << (std::ostream & os, Interval<T> const & i)
     {
-        os << '[' << Dbg {i.low} << ", " << Dbg  {i.high} << "]";
-        if (i.step > 1)
+        if (i.is_singleton())
         {
-            os << "/" << std::dec << (+i.step);
+            os << '{' << Dbg {i.low} << "}";
+        }
+        else
+        {
+            os << '[' << Dbg {i.low} << ", " << Dbg  {i.high} << "]";
+            if (i.step > 1)
+            {
+                os << "/" << std::dec << (+i.step);
+            }
         }
         return os;
     }
@@ -346,7 +353,7 @@ namespace
                 (
                     r && (a == b) ? "OK "s :
                     //r && (a >= b) ? std::format("OVER ({}) ", distance(a.low, a.high) - distance(b.low, b.high)) :
-                    r && (a >= b) ? "OVER ("s + std::to_string(distance(distance(b.low, b.high), distance(a.low, a.high))) + ") "s :
+                    r && (a >= b) ? "OVER ("s + std::to_string(distance(distance(b.low, b.high), distance(a.low, a.high))) + " / " + std::to_string(b.step / a.step) + ") "s :
                     //r && (a >= b) ? "OVER ("s + std::to_string(distance(a.low, a.high) - distance(b.low, b.high)) + ") "s :
                                     "KO "s
                 );
