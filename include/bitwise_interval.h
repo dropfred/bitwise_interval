@@ -23,10 +23,10 @@ auto uabs(T n)
     return un;
 }
 
-template <typename T>
-auto umod(T n, std::make_unsigned_t<T> d)
+template <typename T, typename UT>
+auto umod(T n, UT d)
 {
-    using UT = std::make_unsigned_t<T>;
+    static_assert(std::is_same_v<std::make_unsigned_t<T>, UT>);
     auto m = uabs(n);
     m %= d;
     if constexpr (std::is_signed_v<T>)
