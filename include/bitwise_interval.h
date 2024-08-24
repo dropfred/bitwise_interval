@@ -165,7 +165,7 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
                 Assertion failed: umod(this->low, this->step) == umod(this->high, this->step), file E:\Fred\Dev\bitwise_interval\include\bitwise_interval.h, line 58                                
                 */
                 // return {std::min(nx.low, px.low), std::max(nx.high, px.high), std::min(nx.step, px.step)};
-                return {std::min(nx.low, px.low), std::max(nx.high, px.high), UT(1U)};
+                return {std::min(nx.low, px.low), std::max(nx.high, px.high)};
             }
             else
             {
@@ -187,8 +187,7 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
                 return
                 {
                     std::min({nn.low , np.low , pn.low , pp.low }),
-                    std::max({nn.high, np.high, pn.high, pp.high}),
-                    UT(1U)
+                    std::max({nn.high, np.high, pn.high, pp.high})
                 };
             }
         }
@@ -207,8 +206,23 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
         // T step_y = std::has_single_bit(y.step) ? y.step : one;
         // T step_x = ((x.step & (x.step - one)) == zero) ? x.step : one;
         // T step_y = ((y.step & (y.step - one)) == zero) ? y.step : one;
-        T step_x = one; for (T s = x.step; (s & one) == zero; s >>= 1) {step_x <<= 1;}
-        T step_y = one; for (T s = y.step; (s & one) == zero; s >>= 1) {step_y <<= 1;}
+        T step_x = one; for (T s = x.step; (s & one) == zero; s >>= one) {step_x <<= one;}
+        T step_y = one; for (T s = y.step; (s & one) == zero; s >>= one) {step_y <<= one;}
+
+        if (!x.is_singleton() && y.is_singleton())
+        {
+            while ((step_x != msb) && ((step_x & y.low) == zero))
+            {
+                step_x <<= one;
+            }
+        }
+        else if (x.is_singleton() && !y.is_singleton())
+        {
+            while ((step_y != msb) && ((step_y & x.low) == zero))
+            {
+                step_y <<= one;
+            }
+        }
 
         T mask_x = ~(step_x - one);
         T mask_y = ~(step_y - one);
@@ -370,7 +384,7 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
                 I nx = xor_interval(UI {x.sub(x.low, m_one)}, UI {y});
                 I px = xor_interval(UI {x.sub(zero, x.high)}, UI {y});
                 // return {std::min(nx.low, px.low), std::max(nx.high, px.high), std::min(nx.step, px.step)};
-                return {std::min(nx.low, px.low), std::max(nx.high, px.high), UT(1U)};
+                return {std::min(nx.low, px.low), std::max(nx.high, px.high)};
             }
             else
             {
@@ -392,8 +406,7 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
                 return
                 {
                     std::min({nn.low , np.low , pn.low , pp.low }),
-                    std::max({nn.high, np.high, pn.high, pp.high}),
-                    UT(1U)
+                    std::max({nn.high, np.high, pn.high, pp.high})
                 };
             }
         }
@@ -409,8 +422,23 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
         // T step_y = std::has_single_bit(y.step) ? y.step : one;
         // T step_x = ((x.step & (x.step - one)) == zero) ? x.step : one;
         // T step_y = ((y.step & (y.step - one)) == zero) ? y.step : one;
-        T step_x = one; for (T s = x.step; (s & one) == zero; s >>= 1) {step_x <<= 1;}
-        T step_y = one; for (T s = y.step; (s & one) == zero; s >>= 1) {step_y <<= 1;}
+        T step_x = one; for (T s = x.step; (s & one) == zero; s >>= one) {step_x <<= one;}
+        T step_y = one; for (T s = y.step; (s & one) == zero; s >>= one) {step_y <<= one;}
+
+        if (!x.is_singleton() && y.is_singleton())
+        {
+            while ((step_x != msb) && ((step_x & y.low) == zero))
+            {
+                step_x <<= one;
+            }
+        }
+        else if (x.is_singleton() && !y.is_singleton())
+        {
+            while ((step_y != msb) && ((step_y & x.low) == zero))
+            {
+                step_y <<= one;
+            }
+        }
 
         // TODO
         T step = std::min(step_x, step_y);

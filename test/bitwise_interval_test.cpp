@@ -40,6 +40,8 @@ namespace
 
     bool DBG_HEX = false;
 
+    std::size_t NUM_TESTS = 0;
+
     template <typename T>
     bool operator == (Interval<T> const & a, Interval<T> const & b)
     {
@@ -403,6 +405,7 @@ namespace
     void test_random()
     {
         Rand rand {};
+        size_t ns = NUM_TESTS;
 
         while (true)
         {
@@ -482,6 +485,10 @@ namespace
             {
                 break;
             }
+            if ((ns != 0) && (--ns == 0))
+            {
+                break;
+            }
 #ifdef __TRUSTINSOFT_ANALYZER__
             break;
 #endif
@@ -491,82 +498,16 @@ namespace
 
 int usage(char const * file, int e = -1)
 {
-    std::cerr << "usage: " << file << "[-h] [-d] [-s1] [-s2] [-sa] type [x.low x.high [x_step] y.low y.high [y_step]]\n";
+    std::cerr << "usage: " << file << "[-h] [-d] [-s1] [-s2] [-sa] [-n <num>] type [x.low x.high [x_step] y.low y.high [y_step]]\n";
     return -e;
 }
 
-/*
-# x = [10000100 (-124), 10110110 (-74)]/50
-# y = [10011101 (-99), 10011101 (-99)]
-OK not x : [01001001 (73), 01111011 (123)]/50 : [01001001 (73), 01111011 (123)]/50
-OK not y : [01100010 (98), 01100010 (98)] : [01100010 (98), 01100010 (98)]
-OVER (243) and x y : [10000000 (-128), 10011101 (-99)] : [10000100 (-124), 10010100 (-108)]/16
-OVER (0) or x y : [10011101 (-99), 10111111 (-65)] : [10011101 (-99), 10111111 (-65)]/34
-OVER (45) xor x y : [00000000 (0), 00111111 (63)] : [00011001 (25), 00101011 (43)]/18
-*/
 int main(int argc, char const * argv[])
 {
-    // {
-    //     using S8 = std::int8_t;
-    //     std::cout << distance(-2, -1) << std::endl;
-    //     std::cout << distance(1, 2) << std::endl;
-    //     std::cout << distance(-20, -10) << std::endl;
-    //     std::cout << distance(10, 20) << std::endl;
-    //     std::cout << distance(-1, 1) << std::endl;
-    //     std::cout << +distance(S8(-128), S8(-99)) << std::endl;
-    //     std::cout << +distance(S8(-124), S8(-108)) << std::endl;
-    //     return 0;
-    // }
-    // {
-    //     using S8 = Interval<std::int8_t>;
-
-    //     auto m1 = umod(-33, 8U);
-    //     auto m2 = umod(103, 8U);
-    // }
-    // {
-    //     using U8 = Interval<std::uint8_t>;
-    //     U8 a {1, 10};
-    //     U8 b {2, 20};
-    //     U8 ba = and_interval(a, b);
-    //     U8 bo = or_interval(a, b);
-    //     U8 bx = xor_interval(a, b);
-    // }
-    // {
-    //     using S8 = Interval<std::int8_t>;
-    //     S8 a {1, 10};
-    //     S8 b {2, 20};
-    //     S8 ba = and_interval(a, b);
-    //     S8 bo = or_interval(a, b);
-    //     S8 bx = xor_interval(a, b);
-    // }
-    // {
-    //     std::cout << std::hex << uabs(INT_MAX) << std::endl;
-    //     std::cout << std::hex << uabs(INT_MIN) << std::endl;
-
-    //     std::cout << +uabs(char(CHAR_MAX)) << std::endl;
-    //     std::cout << +uabs(char(CHAR_MIN)) << std::endl;
-    // }
-
-    //assert(round_up(0, 3, 1) == 1);
-    //assert(round_up(1, 3, 1) == 1);
-    //assert(round_up(2, 3, 1) == 4);
-
-    //assert(round_up(-3, 3, 1) == -2);
-    //assert(round_up(-2, 3, 1) == -2);
-    //assert(round_up(-1, 3, 1) == 1);
-
-    //assert(round_down(6, 3, 1) == 4);
-    //assert(round_down(7, 3, 1) == 7);
-    //assert(round_down(8, 3, 1) == 7);
-
-    //assert(round_down(-1, 3, 1) == -2);
-    //assert(round_down(-2, 3, 1) == -2);
-    //assert(round_down(-3, 3, 1) == -5);
-
     // skip filename
     char const ** args = &argv[1];
-    
-    for (bool done = false; !done && (argc > 0); ++args, --argc)
+
+    for (bool done = false; !done && (argc > 1); ++args, --argc)
     {
         if (*args == "-h"s)
         {
@@ -587,6 +528,17 @@ int main(int argc, char const * argv[])
         else if (*args == "-sa"s)
         {
             STEP_MODE = S_ANY;
+        }
+        else if (*args == "-n"s)
+        {
+            ++args;
+            --argc;
+            if (*args == nullptr)
+            {
+                return usage(argv[0]);
+            }
+
+            NUM_TESTS = parse<std::size_t>(*args);
         }
         else if (*args == "--"s)
         {
