@@ -202,10 +202,6 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
         auto low_x = x, high_x = x;
         auto low_y = y, high_y = y;
 
-        // T step_x = std::has_single_bit(x.step) ? x.step : one;
-        // T step_y = std::has_single_bit(y.step) ? y.step : one;
-        // T step_x = ((x.step & (x.step - one)) == zero) ? x.step : one;
-        // T step_y = ((y.step & (y.step - one)) == zero) ? y.step : one;
         T step_x = one; for (T s = x.step; (s & one) == zero; s >>= one) {step_x <<= one;}
         T step_y = one; for (T s = y.step; (s & one) == zero; s >>= one) {step_y <<= one;}
 
@@ -418,26 +414,16 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
         T low  = zero;
         T high = zero;
 
-        // T step_x = std::has_single_bit(x.step) ? x.step : one;
-        // T step_y = std::has_single_bit(y.step) ? y.step : one;
-        // T step_x = ((x.step & (x.step - one)) == zero) ? x.step : one;
-        // T step_y = ((y.step & (y.step - one)) == zero) ? y.step : one;
         T step_x = one; for (T s = x.step; (s & one) == zero; s >>= one) {step_x <<= one;}
         T step_y = one; for (T s = y.step; (s & one) == zero; s >>= one) {step_y <<= one;}
 
-        if (!x.is_singleton() && y.is_singleton())
+        if (x.is_singleton())
         {
-            while ((step_x != msb) && ((step_x & y.low) == zero))
-            {
-                step_x <<= one;
-            }
+            step_x = step_y;
         }
-        else if (x.is_singleton() && !y.is_singleton())
+        else if (y.is_singleton())
         {
-            while ((step_y != msb) && ((step_y & x.low) == zero))
-            {
-                step_y <<= one;
-            }
+            step_y = step_x;
         }
 
         // TODO
@@ -512,10 +498,8 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
                     {
                         high |= b;
                         T m = std::min(mask_x, mask_y);
-                        high_x.low = rem_x;
-                        high_x.high = rem_x;
-                        high_y.low = (r & m) | rem_y;
-                        high_y.high = (r & m) | rem_y;
+                        high_x.low = high_x.high = rem_x;
+                        high_y.low = high_y.high = (r & m) | rem_y;
                     }
                     else
                     {
