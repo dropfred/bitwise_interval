@@ -172,6 +172,8 @@ namespace
     };
 #endif
 
+    Rand rand {};
+
     template <typename T>
     bool test_interval(Interval<T> const x, Interval<T> const y, bool trace = true)
     {
@@ -399,8 +401,6 @@ namespace
     Interval<T> make_random_interval()
     {
         using UT = std::make_unsigned_t<T>;
-
-        Rand rand {};
 
         T low = rand(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
 
