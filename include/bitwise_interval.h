@@ -7,7 +7,25 @@
 #include <climits>
 #include <cassert>
 
+//
 // utils
+//
+
+template <typename T>
+constexpr T msb = T(std::make_unsigned_t<T>(1U) << (sizeof (T) * CHAR_BIT - 1U));
+
+template <typename T>
+auto get_step2(T n)
+{
+    using UT = std::make_unsigned_t<T>;
+    UT s = UT(1);
+    while ((n & s) == 0)
+    {
+        s <<= 1;
+    }
+    return s;
+}
+
 template <typename T>
 auto uabs(T n)
 {
@@ -162,17 +180,17 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
                 /*
                 # x = [11111110 (-2), 00110010 (50)]/52
                 # y = [01011101 (93), 01110101 (117)]/8
-                Assertion failed: umod(this->low, this->step) == umod(this->high, this->step), file E:\Fred\Dev\bitwise_interval\include\bitwise_interval.h, line 58                                
+                Assertion failed: umod(this->low, this->step) == umod(this->high, this->step)
                 */
                 // return {std::min(nx.low, px.low), std::max(nx.high, px.high), std::min(nx.step, px.step)};
                 return {std::min(nx.low, px.low), std::max(nx.high, px.high)};
             }
             else
             {
-                I nx = x.sub(x.low, m_one);
-                I px = x.sub(zero, x.high);
-                I ny = y.sub(y.low, m_one);
-                I py = y.sub(zero, y.high);
+                I nx = x.sub(x.low, m_one );
+                I px = x.sub(zero , x.high);
+                I ny = y.sub(y.low, m_one );
+                I py = y.sub(zero , y.high);
 
                 I nn = and_interval(UI {nx}, UI {ny});
                 I np = and_interval(UI {nx}, UI {py});
@@ -194,27 +212,25 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
     }
     else
     {
-        constexpr T msb  = one << (sizeof (T) * CHAR_BIT - 1U);
-
         T low  = zero;
         T high = zero;
 
         auto low_x = x, high_x = x;
         auto low_y = y, high_y = y;
 
-        T step_x = one; for (T s = x.step; (s & one) == zero; s >>= one) {step_x <<= one;}
-        T step_y = one; for (T s = y.step; (s & one) == zero; s >>= one) {step_y <<= one;}
+        T step_x = get_step2(x.step);
+        T step_y = get_step2(y.step);
 
         if (!x.is_singleton() && y.is_singleton())
         {
-            while ((step_x != msb) && ((step_x & y.low) == zero))
+            while ((step_x != msb<T>) && ((step_x & y.low) == zero))
             {
                 step_x <<= one;
             }
         }
         else if (x.is_singleton() && !y.is_singleton())
         {
-            while ((step_y != msb) && ((step_y & x.low) == zero))
+            while ((step_y != msb<T>) && ((step_y & x.low) == zero))
             {
                 step_y <<= one;
             }
@@ -231,9 +247,9 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
                : ((step_y > step_x) && ((rem_y == zero) || x.is_singleton())) ? step_y
                : std::min(step_x, step_y);
 
-        for (T b = msb; b != zero; b >>= one)
+        for (T b = msb<T>; b != zero; b >>= one)
         {
-            T r = b - one;
+            T rem = b - one;
 
             // low
             {
@@ -257,7 +273,7 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
                         }
                         else
                         {
-                            low_x.high = (mask_x & r) | rem_x;
+                            low_x.high = (mask_x & rem) | rem_x;
                         }
                     }
                 }
@@ -272,7 +288,7 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
                         }
                         else
                         {
-                            low_y.high = (mask_y & r) | rem_y;
+                            low_y.high = (mask_y & rem) | rem_y;
                         }
                     }
                     else
@@ -300,7 +316,7 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
                         if ((high_y.high & b) == zero)
                         {
                             // high_x done
-                            high_x.low = high_x.high = (mask_x & r) | rem_x;
+                            high_x.low = high_x.high = (mask_x & rem) | rem_x;
                         }
                         else
                         {
@@ -316,7 +332,7 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
                         if ((high_x.high & b) == zero)
                         {
                             // high_y done
-                            high_y.low = high_y.high = (mask_y & r) | rem_y;
+                            high_y.low = high_y.high = (mask_y & rem) | rem_y;
                         }
                         else
                         {
@@ -409,39 +425,26 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
     }
     else
     {
-        constexpr T msb  = T(one << (sizeof (T) * CHAR_BIT - 1U));
-
         T low  = zero;
         T high = zero;
 
-        T step_x = one; for (T s = x.step; (s & one) == zero; s >>= one) {step_x <<= one;}
-        T step_y = one; for (T s = y.step; (s & one) == zero; s >>= one) {step_y <<= one;}
-
-        if (x.is_singleton())
-        {
-            step_x = step_y;
-        }
-        else if (y.is_singleton())
-        {
-            step_y = step_x;
-        }
+        T step_x = x.is_singleton() ? msb<T> : get_step2(x.step);
+        T step_y = y.is_singleton() ? msb<T> : get_step2(y.step);
 
         // TODO
         T step = std::min(step_x, step_y);
-        step_x = step_y = step;
 
-        T mask_x = ~(step_x - one);
-        T mask_y = ~(step_y - one);
+        T flip = ~(step - one);
 
-        T rem_x = ~mask_x & x.low;
-        T rem_y = ~mask_y & y.low;
+        T rem_x = ~flip & x.low;
+        T rem_y = ~flip & y.low;
 
         auto low_x = x, high_x = x;
         auto low_y = y, high_y = y;
 
-        for (T b = msb; b != zero; b >>= one)
+        for (T b = msb<T>; b != zero; b >>= one)
         {
-            T r = b - one;
+            T rem = b - one;
 
             // low
             {
@@ -459,7 +462,7 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
                     {
                         if ((low_y.high & b) == zero)
                         {
-                            low_x.high = (mask_x & r) | rem_x;
+                            low_x.high = (flip & rem) | rem_x;
                         }
                         else
                         {
@@ -473,7 +476,7 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
                     {
                         if ((low_x.high & b) == zero)
                         {
-                            low_y.high = (mask_y & r) | rem_y;
+                            low_y.high = (flip & rem) | rem_y;
                         }
                         else
                         {
@@ -497,9 +500,8 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
                     if (flip_y)
                     {
                         high |= b;
-                        T m = std::min(mask_x, mask_y);
                         high_x.low = high_x.high = rem_x;
-                        high_y.low = high_y.high = (r & m) | rem_y;
+                        high_y.low = high_y.high = (rem & flip) | rem_y;
                     }
                     else
                     {
@@ -510,7 +512,7 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
                         }
                         else
                         {
-                            high_x.high = (mask_x & r) | rem_x;
+                            high_x.high = (flip & rem) | rem_x;
                         }
                     }
                 }
@@ -525,7 +527,7 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
                         }
                         else
                         {
-                            high_y.high = (mask_y & r) | rem_y;
+                            high_y.high = (flip & rem) | rem_y;
                         }
                     }
                     else
