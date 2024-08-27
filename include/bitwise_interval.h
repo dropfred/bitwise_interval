@@ -218,34 +218,28 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
         auto low_x = x, high_x = x;
         auto low_y = y, high_y = y;
 
-        T step_x = get_step2(x.step);
-        T step_y = get_step2(y.step);
+        T step_x = x.is_singleton() ? msb<T> : get_step2(x.step);
+        T step_y = y.is_singleton() ? msb<T> : get_step2(y.step);
 
-        if (!x.is_singleton() && y.is_singleton())
+        T rem_x = (step_x - one) & x.low;
+        T rem_y = (step_y - one) & y.low;
+
+        while ((step_x < step_y) && ((step_x & rem_y) == zero))
         {
-            while ((step_x != msb<T>) && ((step_x & y.low) == zero))
-            {
-                step_x <<= one;
-            }
+            step_x <<= one;
         }
-        else if (x.is_singleton() && !y.is_singleton())
+        while ((step_y < step_x) && ((step_y & rem_x) == zero))
         {
-            while ((step_y != msb<T>) && ((step_y & x.low) == zero))
-            {
-                step_y <<= one;
-            }
+            step_y <<= one;
         }
 
-        T mask_x = ~(step_x - one);
-        T mask_y = ~(step_y - one);
+        T flip_x = ~(step_x - one);
+        T flip_y = ~(step_y - one);
 
-        T rem_x = ~mask_x & x.low;
-        T rem_y = ~mask_y & y.low;
+        rem_x = ~flip_x & x.low;
+        rem_y = ~flip_y & y.low;
 
-        // TODO
-        T step = ((step_x > step_y) && ((rem_x == zero) || y.is_singleton())) ? step_x
-               : ((step_y > step_x) && ((rem_y == zero) || x.is_singleton())) ? step_y
-               : std::min(step_x, step_y);
+        T step = std::min(step_x, step_y);
 
         for (T b = msb<T>; b != zero; b >>= one)
         {
@@ -253,12 +247,12 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
 
             // low
             {
-                bool flip_x = ((low_x.low ^ low_x.high) & b) != zero;
-                bool flip_y = ((low_y.low ^ low_y.high) & b) != zero;
+                bool f_x = ((low_x.low ^ low_x.high) & b) != zero;
+                bool f_y = ((low_y.low ^ low_y.high) & b) != zero;
 
-                if (flip_x)
+                if (f_x)
                 {
-                    if (flip_y)
+                    if (f_y)
                     {
                         // low_x & low_y done
                         low_x.low = low_x.high = rem_x;
@@ -273,13 +267,13 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
                         }
                         else
                         {
-                            low_x.high = (mask_x & rem) | rem_x;
+                            low_x.high = (flip_x & rem) | rem_x;
                         }
                     }
                 }
                 else
                 {
-                    if (flip_y)
+                    if (f_y)
                     {
                         if ((low_x.high & b) == zero)
                         {
@@ -288,7 +282,7 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
                         }
                         else
                         {
-                            low_y.high = (mask_y & rem) | rem_y;
+                            low_y.high = (flip_y & rem) | rem_y;
                         }
                     }
                     else
@@ -300,12 +294,12 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
 
             // high
             {
-                bool flip_x = ((high_x.low ^ high_x.high) & b) != zero;
-                bool flip_y = ((high_y.low ^ high_y.high) & b) != zero;
+                bool f_x = ((high_x.low ^ high_x.high) & b) != zero;
+                bool f_y = ((high_y.low ^ high_y.high) & b) != zero;
 
-                if (flip_x)
+                if (f_x)
                 {
-                    if (flip_y)
+                    if (f_y)
                     {
                         high |= b;
                         high_x.low = rem_x;
@@ -316,7 +310,7 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
                         if ((high_y.high & b) == zero)
                         {
                             // high_x done
-                            high_x.low = high_x.high = (mask_x & rem) | rem_x;
+                            high_x.low = high_x.high = (flip_x & rem) | rem_x;
                         }
                         else
                         {
@@ -327,12 +321,12 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
                 }
                 else
                 {
-                    if (flip_y)
+                    if (f_y)
                     {
                         if ((high_x.high & b) == zero)
                         {
                             // high_y done
-                            high_y.low = high_y.high = (mask_y & rem) | rem_y;
+                            high_y.low = high_y.high = (flip_y & rem) | rem_y;
                         }
                         else
                         {
@@ -448,12 +442,12 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
 
             // low
             {
-                bool flip_x = ((low_x.low ^ low_x.high) & b) != zero;
-                bool flip_y = ((low_y.low ^ low_y.high) & b) != zero;
+                bool f_x = ((low_x.low ^ low_x.high) & b) != zero;
+                bool f_y = ((low_y.low ^ low_y.high) & b) != zero;
 
-                if (flip_x)
+                if (f_x)
                 {
-                    if (flip_y)
+                    if (f_y)
                     {
                         low_x.low = low_x.high = rem_x;
                         low_y.low = low_y.high = rem_y;
@@ -472,7 +466,7 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
                 }
                 else
                 {
-                    if (flip_y)
+                    if (f_y)
                     {
                         if ((low_x.high & b) == zero)
                         {
@@ -492,12 +486,12 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
 
             // high
             {
-                bool flip_x = ((high_x.low ^ high_x.high) & b) != zero;
-                bool flip_y = ((high_y.low ^ high_y.high) & b) != zero;
+                bool f_x = ((high_x.low ^ high_x.high) & b) != zero;
+                bool f_y = ((high_y.low ^ high_y.high) & b) != zero;
 
-                if (flip_x)
+                if (f_x)
                 {
-                    if (flip_y)
+                    if (f_y)
                     {
                         high |= b;
                         high_x.low = high_x.high = rem_x;
@@ -518,7 +512,7 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
                 }
                 else
                 {
-                    if (flip_y)
+                    if (f_y)
                     {
                         high |= b;
                         if ((high_x.high & b) == zero)
