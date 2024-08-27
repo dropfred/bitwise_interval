@@ -396,86 +396,54 @@ namespace
     }
 
     template <typename T>
+    Interval<T> make_random_interval()
+    {
+        using UT = std::make_unsigned_t<T>;
+
+        Rand rand {};
+
+        T low = rand(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
+
+        UT dist = distance(low, std::numeric_limits<T>::max());
+
+        UT step;
+        if (STEP_MODE == S_PO2)
+        {
+            step = UT(1ULL << rand(0, int((sizeof (T) * CHAR_BIT) - 1)));
+        }
+        else if (STEP_MODE == S_1)
+        {
+            step = UT(1);
+        }
+        else
+        {
+            step = rand(UT(1), dist);
+        }
+
+        UT size = UT(dist / step);
+        if constexpr (sizeof (UT) > 2)
+        {
+            if (size > INTERVAL_MAX) {size = INTERVAL_MAX;}
+        }
+        size = rand(UT(0), size);
+        if (size == UT(0))
+        {
+            step = UT(1);
+        }
+
+        T high = T(low + size * step);
+
+        return {low, high, step};
+    }
+
+    template <typename T>
     void test_random()
     {
-        Rand rand {};
         size_t ns = NUM_TESTS;
 
         while (true)
         {
-            using UT = std::make_unsigned_t<T>;
-
-            T a_low = rand(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
-
-            UT a_dist = distance(a_low, std::numeric_limits<T>::max());
-
-            UT a_step;
-            if (STEP_MODE == S_PO2)
-            {
-                a_step = UT(1ULL << rand(0, int((sizeof (T) * CHAR_BIT) - 1)));
-            }
-            else if (STEP_MODE == S_1)
-            {
-                a_step = UT(1);
-            }
-            else
-            {
-                a_step = rand(UT(1), a_dist);
-            }
-            //if constexpr (std::is_signed_v<T>)
-            //{
-            //    if (T(a_step) < 0) continue;
-            //}
-
-            UT a_size = UT(a_dist / a_step);
-            if constexpr (sizeof (UT) > 2)
-            {
-                if (a_size > INTERVAL_MAX) {a_size = INTERVAL_MAX;}
-            }
-            a_size = rand(UT(0), a_size);
-            if (a_size == UT(0))
-            {
-                a_step = UT(1);
-            }
-
-            T a_high = T(a_low + a_size * a_step);
-
-            T b_low = rand(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
-
-            UT b_dist = distance(b_low, std::numeric_limits<T>::max());
-
-            UT b_step;
-            if (STEP_MODE == S_PO2)
-            {
-                b_step = UT(1ULL << rand(0, int((sizeof (T) * CHAR_BIT) - 1)));
-            }
-            else if (STEP_MODE == S_1)
-            {
-                b_step = UT(1);
-            }
-            else
-            {
-                b_step = rand(UT(1), b_dist);
-            }
-            //if constexpr (std::is_signed_v<T>)
-            //{
-            //    if (T(b_step) < 0) continue;
-            //}
-
-            UT b_size = UT(b_dist / b_step);
-            if constexpr (sizeof (UT) > 2)
-            {
-                if (b_size > INTERVAL_MAX) {b_size = INTERVAL_MAX;}
-            }
-            b_size = rand(UT(0), b_size);
-            if (b_size == UT(0))
-            {
-                b_step = UT(1);
-            }
-
-            T b_high = T(b_low + b_size * b_step);
-
-            if (!test_interval(Interval<T> {a_low, a_high, a_step}, Interval<T> {b_low, b_high, b_step}, true))
+            if (!test_interval(make_random_interval<T>(), make_random_interval<T>(), true))
             {
                 break;
             }
