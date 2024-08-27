@@ -11,6 +11,7 @@
 #include <random>
 #include <limits>
 #include <cassert>
+#include <cmath>
 #include <set>
 #include <numeric>
 
@@ -151,28 +152,21 @@ namespace
         T operator () (T a, T b)
         {
             double r = double(std::rand()) / RAND_MAX;
-
             return T((a * (1.0 - r)) + (b * r));
         }
     };
 
 #else
-    template <typename T>
     class Rand
     {
-        using D = std::uniform_int_distribution<std::conditional_t<(sizeof (T) > 1), T, short int>>;
-        
         std::random_device rd {};
 
     public:
 
-        T operator () ()
-        {
-            return (*this)(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
-        }
-
+        template <typename T>
         T operator () (T a, T b)
         {
+            using D = std::uniform_int_distribution<std::conditional_t<(sizeof (T) > 1), T, short int>>;
             return T((D {a, b})(rd));
         }
     };
