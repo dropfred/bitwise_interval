@@ -250,45 +250,40 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
                 bool f_x = ((low_x.low ^ low_x.high) & b) != zero;
                 bool f_y = ((low_y.low ^ low_y.high) & b) != zero;
 
-                if (f_x)
+                if (f_x && f_y)
                 {
-                    if (f_y)
+                    // low_x & low_y done
+                    low_x.low = low_x.high = rem_x;
+                    low_y.low = low_y.high = rem_y;
+                }
+                else if (f_x)
+                {
+                    if ((low_y.high & b) == zero)
                     {
-                        // low_x & low_y done
+                        // low_x done
                         low_x.low = low_x.high = rem_x;
+                    }
+                    else
+                    {
+                        low_x.high = (flip_x & rem) | rem_x;
+                    }
+
+                }
+                else if (f_y)
+                {
+                    if ((low_x.high & b) == zero)
+                    {
+                        // low_y done
                         low_y.low = low_y.high = rem_y;
                     }
                     else
                     {
-                        if ((low_y.high & b) == zero)
-                        {
-                            // low_x done
-                            low_x.low = low_x.high = rem_x;
-                        }
-                        else
-                        {
-                            low_x.high = (flip_x & rem) | rem_x;
-                        }
+                        low_y.high = (flip_y & rem) | rem_y;
                     }
                 }
                 else
                 {
-                    if (f_y)
-                    {
-                        if ((low_x.high & b) == zero)
-                        {
-                            // low_y done
-                            low_y.low = low_y.high = rem_y;
-                        }
-                        else
-                        {
-                            low_y.high = (flip_y & rem) | rem_y;
-                        }
-                    }
-                    else
-                    {
-                        low |= (low_x.low & low_y.low) & b;
-                    }
+                    low |= (low_x.low & low_y.low) & b;
                 }
             }
 
@@ -297,47 +292,41 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
                 bool f_x = ((high_x.low ^ high_x.high) & b) != zero;
                 bool f_y = ((high_y.low ^ high_y.high) & b) != zero;
 
-                if (f_x)
+                if (f_x && f_y)
                 {
-                    if (f_y)
+                    high |= b;
+                    high_x.low = rem_x;
+                    high_y.low = rem_y;
+                }
+                else if (f_x)
+                {
+                    if ((high_y.high & b) == zero)
                     {
-                        high |= b;
-                        high_x.low = rem_x;
-                        high_y.low = rem_y;
+                        // high_x done
+                        high_x.low = high_x.high = (flip_x & rem) | rem_x;
                     }
                     else
                     {
-                        if ((high_y.high & b) == zero)
-                        {
-                            // high_x done
-                            high_x.low = high_x.high = (flip_x & rem) | rem_x;
-                        }
-                        else
-                        {
-                            high |= b;
-                            high_x.low = rem_x;
-                        }
+                        high |= b;
+                        high_x.low = rem_x;
+                    }
+                }
+                else if (f_y)
+                {
+                    if ((high_x.high & b) == zero)
+                    {
+                        // high_y done
+                        high_y.low = high_y.high = (flip_y & rem) | rem_y;
+                    }
+                    else
+                    {
+                        high |= b;
+                        high_y.low = rem_y;
                     }
                 }
                 else
                 {
-                    if (f_y)
-                    {
-                        if ((high_x.high & b) == zero)
-                        {
-                            // high_y done
-                            high_y.low = high_y.high = (flip_y & rem) | rem_y;
-                        }
-                        else
-                        {
-                            high |= b;
-                            high_y.low = rem_y;
-                        }
-                    }
-                    else
-                    {
-                        high |= (high_x.low & high_y.low) & b;
-                    }
+                    high |= (high_x.low & high_y.low) & b;
                 }
             }
         }
@@ -445,42 +434,36 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
                 bool f_x = ((low_x.low ^ low_x.high) & b) != zero;
                 bool f_y = ((low_y.low ^ low_y.high) & b) != zero;
 
-                if (f_x)
+                if (f_x && f_y)
                 {
-                    if (f_y)
+                    low_x.low = low_x.high = rem_x;
+                    low_y.low = low_y.high = rem_y;
+                }
+                else if (f_x)
+                {
+                    if ((low_y.high & b) == zero)
                     {
-                        low_x.low = low_x.high = rem_x;
-                        low_y.low = low_y.high = rem_y;
+                        low_x.high = (flip & rem) | rem_x;
                     }
                     else
                     {
-                        if ((low_y.high & b) == zero)
-                        {
-                            low_x.high = (flip & rem) | rem_x;
-                        }
-                        else
-                        {
-                            low_x.low = rem_x;
-                        }
+                        low_x.low = rem_x;
+                    }
+                }
+                else if (f_y)
+                {
+                    if ((low_x.high & b) == zero)
+                    {
+                        low_y.high = (flip & rem) | rem_y;
+                    }
+                    else
+                    {
+                        low_y.low = rem_y;
                     }
                 }
                 else
                 {
-                    if (f_y)
-                    {
-                        if ((low_x.high & b) == zero)
-                        {
-                            low_y.high = (flip & rem) | rem_y;
-                        }
-                        else
-                        {
-                            low_y.low = rem_y;
-                        }
-                    }
-                    else
-                    {
-                        low |= (low_x.low ^ low_y.low) & b;
-                    }
+                    low |= (low_x.low ^ low_y.low) & b;
                 }
             }
 
@@ -489,45 +472,39 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
                 bool f_x = ((high_x.low ^ high_x.high) & b) != zero;
                 bool f_y = ((high_y.low ^ high_y.high) & b) != zero;
 
-                if (f_x)
+                if (f_x && f_y)
                 {
-                    if (f_y)
+                    high |= b;
+                    high_x.low = high_x.high = rem_x;
+                    high_y.low = high_y.high = (rem & flip) | rem_y;
+                }
+                else if (f_x)
+                {
+                    high |= b;
+                    if ((high_y.high & b) == zero)
                     {
-                        high |= b;
-                        high_x.low = high_x.high = rem_x;
-                        high_y.low = high_y.high = (rem & flip) | rem_y;
+                        high_x.low = rem_x;
                     }
                     else
                     {
-                        high |= b;
-                        if ((high_y.high & b) == zero)
-                        {
-                            high_x.low = rem_x;
-                        }
-                        else
-                        {
-                            high_x.high = (flip & rem) | rem_x;
-                        }
+                        high_x.high = (flip & rem) | rem_x;
+                    }
+                }
+                else if (f_y)
+                {
+                    high |= b;
+                    if ((high_x.high & b) == zero)
+                    {
+                        high_y.low = rem_y;
+                    }
+                    else
+                    {
+                        high_y.high = (flip & rem) | rem_y;
                     }
                 }
                 else
                 {
-                    if (f_y)
-                    {
-                        high |= b;
-                        if ((high_x.high & b) == zero)
-                        {
-                            high_y.low = rem_y;
-                        }
-                        else
-                        {
-                            high_y.high = (flip & rem) | rem_y;
-                        }
-                    }
-                    else
-                    {
-                        high |= (high_x.low ^ high_y.low) & b;
-                    }
+                    high |= (high_x.low ^ high_y.low) & b;
                 }
             }
         }

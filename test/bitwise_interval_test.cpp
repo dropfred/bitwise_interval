@@ -111,7 +111,7 @@ namespace
             os << '[' << Dbg {i.low} << ", " << Dbg  {i.high} << "]";
             if (i.step > 1)
             {
-                os << "/" << std::dec << (+i.step);
+                os << "/" << Dbg {+i.step};
             }
         }
         return os;
