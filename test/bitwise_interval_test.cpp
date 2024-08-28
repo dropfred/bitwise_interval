@@ -31,17 +31,19 @@ using namespace std::string_literals;
 
 namespace
 {
-    enum
+    struct Cfg
     {
-        S_1,
-        S_PO2,
-        S_ANY
+        enum
+        {
+            S_1,
+            S_PO2,
+            S_ANY
 
-    } STEP_MODE = S_ANY;
-
-    bool DBG_HEX = false;
-
-    std::size_t NUM_TESTS = 0;
+        };
+        int step = S_ANY;
+        bool hex = false;
+        std::size_t num = 0;
+    } cfg;
 
     template <typename T>
     bool operator == (Interval<T> const & a, Interval<T> const & b)
@@ -76,7 +78,7 @@ namespace
     {
         if constexpr (sizeof (T) == 1)
         {
-            if (DBG_HEX)
+            if (cfg.hex)
             {
                 os << std::bitset<CHAR_BIT>((unsigned long long)(v.value)) << " (" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << (v.value & 0xFF) << ")";
             }
@@ -87,7 +89,7 @@ namespace
         }
         else
         {
-            if (DBG_HEX)
+            if (cfg.hex)
             {
                 os << std::hex << std::uppercase << std::setw(2 * sizeof (T) / CHAR_BIT) << std::setfill('0') << v.value;
             }
@@ -407,11 +409,11 @@ namespace
         UT dist = distance(low, std::numeric_limits<T>::max());
 
         UT step;
-        if (STEP_MODE == S_PO2)
+        if (cfg.step == Cfg::S_PO2)
         {
             step = UT(1ULL << rand(0, int((sizeof (T) * CHAR_BIT) - 1)));
         }
-        else if (STEP_MODE == S_1)
+        else if (cfg.step == Cfg::S_1)
         {
             step = UT(1);
         }
@@ -439,7 +441,7 @@ namespace
     template <typename T>
     void test_random()
     {
-        size_t ns = NUM_TESTS;
+        size_t ns = cfg.num;
 
         while (true)
         {
@@ -475,27 +477,27 @@ int main(int argc, char const * argv[])
         {
             if (*args == "-h"s)
             {
-                DBG_HEX = true;
+                cfg.hex = true;
             }
             else if (*args == "-d"s)
             {
-                DBG_HEX = false;
+                cfg.hex = false;
             }
             else if (*args == "-s1"s)
             {
-                STEP_MODE = S_1;
+                cfg.step = Cfg::S_1;
             }
             else if (*args == "-s2"s)
             {
-                STEP_MODE = S_PO2;
+                cfg.step = Cfg::S_PO2;
             }
             else if (*args == "-sa"s)
             {
-                STEP_MODE = S_ANY;
+                cfg.step = Cfg::S_ANY;
             }
             else if (std::string(*args).starts_with("-n="s))
             {
-                NUM_TESTS = parse<std::size_t>(*args + 3);
+                cfg.num = parse<std::size_t>(*args + 3);
             }
             else if (*args == "--"s)
             {
