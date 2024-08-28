@@ -511,7 +511,7 @@ int main(int argc, char const * argv[])
             else break;
         }
     }
-    catch(std::exception const & e)
+    catch (std::exception const &)
     {
         return usage(argv[0]);
     }
