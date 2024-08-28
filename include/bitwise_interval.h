@@ -41,17 +41,16 @@ auto uabs(T n)
     return un;
 }
 
-template <typename T, typename UT>
-auto umod(T n, UT d)
+template <typename T>
+auto umod(T n, std::make_unsigned_t<T> d)
 {
-    static_assert(std::is_same_v<std::make_unsigned_t<T>, UT>);
-    auto m = uabs(n);
-    m %= d;
+    using UT = std::make_unsigned_t<T>;
+    auto m = uabs(n) % d;
     if constexpr (std::is_signed_v<T>)
     {
-        if ((m != 0U) && (n < 0))
+        if (n < 0)
         {
-            m = d - m;
+            m = (d - m) % d;
         }
     }
     return UT(m);
@@ -126,7 +125,6 @@ struct Interval
         return v;
     }
 
-
     Interval sub(T low, T high) const
     {
         assert((low >= this->low) && (high <= this->high));
@@ -157,57 +155,53 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
         using I  = Interval<T>;
         using UI = Interval<UT>;
 
-        if ((x.low >= zero) || (x.high < zero))
+        constexpr T m_one = T(-1);
+
+        bool l_x = (x.low < zero) && (x.high >= zero);
+        bool l_y = (y.low < zero) && (y.high >= zero);
+
+        if (l_x && l_y)
         {
-            if ((y.low >= zero) || (y.high < zero))
+            I nx = x.sub(x.low, m_one );
+            I px = x.sub(zero , x.high);
+            I ny = y.sub(y.low, m_one );
+            I py = y.sub(zero , y.high);
+
+            I nn = and_interval(UI {nx}, UI {ny});
+            I np = and_interval(UI {nx}, UI {py});
+            I pn = and_interval(UI {px}, UI {ny});
+            I pp = and_interval(UI {px}, UI {py});
+            // return
+            // {
+            //     std::min({nn.low , np.low , pn.low , pp.low }),
+            //     std::max({nn.high, np.high, pn.high, pp.high}),
+            //     std::min({nn.step, np.step, pn.step, pp.step})
+            // };
+            return
             {
-                return and_interval(UI {x}, UI {y});
-            }
-            else
-            {
-                return and_interval(y, x);
-            }
+                std::min({nn.low , np.low , pn.low , pp.low }),
+                std::max({nn.high, np.high, pn.high, pp.high})
+            };
+        }
+        else if (l_x)
+        {
+            I nx = and_interval(UI {x.sub(x.low, m_one)}, UI {y});
+            I px = and_interval(UI {x.sub(zero, x.high)}, UI {y});
+            /*
+            # x = [11111110 (-2), 00110010 (50)]/52
+            # y = [01011101 (93), 01110101 (117)]/8
+            Assertion failed: umod(this->low, this->step) == umod(this->high, this->step)
+            */
+            // return {std::min(nx.low, px.low), std::max(nx.high, px.high), std::min(nx.step, px.step)};
+            return {std::min(nx.low, px.low), std::max(nx.high, px.high)};
+        }
+        else if (l_y)
+        {
+            return and_interval(y, x);
         }
         else
         {
-            constexpr T m_one = T(-1);
-
-            // TODO: step
-            if ((y.low >= 0) || (y.high < zero))
-            {
-                I nx = and_interval(UI {x.sub(x.low, m_one)}, UI {y});
-                I px = and_interval(UI {x.sub(zero, x.high)}, UI {y});
-                /*
-                # x = [11111110 (-2), 00110010 (50)]/52
-                # y = [01011101 (93), 01110101 (117)]/8
-                Assertion failed: umod(this->low, this->step) == umod(this->high, this->step)
-                */
-                // return {std::min(nx.low, px.low), std::max(nx.high, px.high), std::min(nx.step, px.step)};
-                return {std::min(nx.low, px.low), std::max(nx.high, px.high)};
-            }
-            else
-            {
-                I nx = x.sub(x.low, m_one );
-                I px = x.sub(zero , x.high);
-                I ny = y.sub(y.low, m_one );
-                I py = y.sub(zero , y.high);
-
-                I nn = and_interval(UI {nx}, UI {ny});
-                I np = and_interval(UI {nx}, UI {py});
-                I pn = and_interval(UI {px}, UI {ny});
-                I pp = and_interval(UI {px}, UI {py});
-                // return
-                // {
-                //     std::min({nn.low , np.low , pn.low , pp.low }),
-                //     std::max({nn.high, np.high, pn.high, pp.high}),
-                //     std::min({nn.step, np.step, pn.step, pp.step})
-                // };
-                return
-                {
-                    std::min({nn.low , np.low , pn.low , pp.low }),
-                    std::max({nn.high, np.high, pn.high, pp.high})
-                };
-            }
+            return and_interval(UI {x}, UI {y});
         }
     }
     else
@@ -358,52 +352,48 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
         using I  = Interval<T>;
         using UI = Interval<UT>;
 
-        if ((x.low >= zero) || (x.high < zero))
+        constexpr T m_one = T(-1);
+
+        bool l_x = (x.low < zero) && (x.high >= zero);
+        bool l_y = (y.low < zero) && (y.high >= zero);
+
+        if (l_x && l_y)
         {
-            if ((y.low >= zero) || (y.high < zero))
+            I nx = x.sub(x.low, m_one);
+            I px = x.sub(zero, x.high);
+            I ny = y.sub(y.low, m_one);
+            I py = y.sub(zero, y.high);
+
+            I nn = xor_interval(UI {nx}, UI {ny});
+            I np = xor_interval(UI {nx}, UI {py});
+            I pn = xor_interval(UI {px}, UI {ny});
+            I pp = xor_interval(UI {px}, UI {py});
+            // return
+            // {
+            //     std::min({nn.low , np.low , pn.low , pp.low }),
+            //     std::max({nn.high, np.high, pn.high, pp.high}),
+            //     std::min({nn.step, np.step, pn.step, pp.step})
+            // };
+            return
             {
-                return xor_interval(UI {x}, UI {y});
-            }
-            else
-            {
-                return xor_interval(y, x);
-            }
+                std::min({nn.low , np.low , pn.low , pp.low }),
+                std::max({nn.high, np.high, pn.high, pp.high})
+            };
+        }
+        else if (l_x)
+        {
+            I nx = xor_interval(UI {x.sub(x.low, m_one)}, UI {y});
+            I px = xor_interval(UI {x.sub(zero, x.high)}, UI {y});
+            // return {std::min(nx.low, px.low), std::max(nx.high, px.high), std::min(nx.step, px.step)};
+            return {std::min(nx.low, px.low), std::max(nx.high, px.high)};
+        }
+        else if (l_y)
+        {
+            return xor_interval(y, x);
         }
         else
         {
-            constexpr T m_one = T(-1);
-
-            // TODO: step
-            if ((y.low >= 0) || (y.high < zero))
-            {
-                I nx = xor_interval(UI {x.sub(x.low, m_one)}, UI {y});
-                I px = xor_interval(UI {x.sub(zero, x.high)}, UI {y});
-                // return {std::min(nx.low, px.low), std::max(nx.high, px.high), std::min(nx.step, px.step)};
-                return {std::min(nx.low, px.low), std::max(nx.high, px.high)};
-            }
-            else
-            {
-                I nx = x.sub(x.low, m_one);
-                I px = x.sub(zero, x.high);
-                I ny = y.sub(y.low, m_one);
-                I py = y.sub(zero, y.high);
-
-                I nn = xor_interval(UI {nx}, UI {ny});
-                I np = xor_interval(UI {nx}, UI {py});
-                I pn = xor_interval(UI {px}, UI {ny});
-                I pp = xor_interval(UI {px}, UI {py});
-                // return
-                // {
-                //     std::min({nn.low , np.low , pn.low , pp.low }),
-                //     std::max({nn.high, np.high, pn.high, pp.high}),
-                //     std::min({nn.step, np.step, pn.step, pp.step})
-                // };
-                return
-                {
-                    std::min({nn.low , np.low , pn.low , pp.low }),
-                    std::max({nn.high, np.high, pn.high, pp.high})
-                };
-            }
+            return xor_interval(UI {x}, UI {y});
         }
     }
     else
