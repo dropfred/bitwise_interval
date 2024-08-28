@@ -469,51 +469,51 @@ int main(int argc, char const * argv[])
     // skip filename
     char const ** args = &argv[1];
 
-    for (bool done = false; !done && (argc > 1); ++args, --argc)
+    try
     {
-        if (*args == "-h"s)
+        for (bool done = false; !done && (argc > 1); ++args, --argc)
         {
-            DBG_HEX = true;
-        }
-        else if (*args == "-d"s)
-        {
-            DBG_HEX = false;
-        }
-        else if (*args == "-s1"s)
-        {
-            STEP_MODE = S_1;
-        }
-        else if (*args == "-s2"s)
-        {
-            STEP_MODE = S_PO2;
-        }
-        else if (*args == "-sa"s)
-        {
-            STEP_MODE = S_ANY;
-        }
-        else if (*args == "-n"s)
-        {
-            ++args;
-            --argc;
-            if (*args == nullptr)
+            if (*args == "-h"s)
             {
+                DBG_HEX = true;
+            }
+            else if (*args == "-d"s)
+            {
+                DBG_HEX = false;
+            }
+            else if (*args == "-s1"s)
+            {
+                STEP_MODE = S_1;
+            }
+            else if (*args == "-s2"s)
+            {
+                STEP_MODE = S_PO2;
+            }
+            else if (*args == "-sa"s)
+            {
+                STEP_MODE = S_ANY;
+            }
+            else if (std::string(*args).starts_with("-n="s))
+            {
+                NUM_TESTS = parse<std::size_t>(*args + 3);
+            }
+            else if (*args == "--"s)
+            {
+                done = true;
+            }
+            else if (*args[0] == '-')
+            {
+                std::cerr << "invalid option '" << *args << "'\n";
                 return usage(argv[0]);
             }
-
-            NUM_TESTS = parse<std::size_t>(*args);
+            else break;
         }
-        else if (*args == "--"s)
-        {
-            done = true;
-        }
-        else if (*args[0] == '-')
-        {
-            std::cerr << "invalid option '" << *args << "'\n";
-            return usage(argv[0]);
-        }
-        else break;
     }
-
+    catch(std::exception const & e)
+    {
+        return usage(argv[0]);
+    }
+    
     // keep static analysis happy
     if (*args == nullptr)
     {
