@@ -14,12 +14,12 @@
 #include <cmath>
 #include <set>
 #include <numeric>
+// #include <format>
 
 #include <variant>
 #include <initializer_list>
 
 #include  <cstdlib> // rand
-// #include <format> // c++20
 
 using namespace std::string_literals;
 
@@ -158,11 +158,8 @@ namespace
         (
             (a.low <= b.low) &&
             (a.high >= b.high) &&
-            (umod(a.low, a.step) == umod(b.low, a.step)) &&
-            (
-                b.is_singleton() ||
-                ((a.step <= b.step) && (std::gcd(a.step, b.step) == a.step))
-            )
+            (b.is_singleton() || ((a.step <= b.step) && (std::gcd(a.step, b.step) == a.step))) &&
+            (umod(a.low, a.step) == umod(b.low, a.step))
         );
     }
 
@@ -273,6 +270,50 @@ namespace
         }
     };
 #endif
+
+    enum
+    {
+        S_OK,
+        S_OVER,
+        S_KO
+    };
+
+    template <typename T>
+    struct Score
+    {
+        int type;
+
+        using UT = std::make_unsigned_t<T>;
+
+        struct
+        {
+            UT distance;
+            UT step;
+        } over;
+    };
+
+    template <typename T>
+    Score<T> score(Interval<T> const & a, Interval<T> const & b)
+    {
+        Score<T> s {S_OVER};
+
+        if (a == b)
+        {
+            s.type = S_OK;
+        }
+        else if (a >= b)
+        {
+            s.type = S_OVER;
+            s.over.distance = distance(distance(b.low, b.high), distance(a.low, a.high));
+            s.over.step = b.step / a.step;
+        }
+        else
+        {
+            s.type = S_KO;
+        }
+
+        return s;
+    }
 
     Rand rand {};
 
@@ -446,16 +487,13 @@ namespace
         {
             auto ok = [] (Interval<T> const & a, Interval<T> const & b, bool r)
             {
-                // std::cout << "distance(a) : " << +distance(a.low, a.high) << std::endl;
-                // std::cout << "distance(b) : " << +distance(b.low, b.high) << std::endl;
-                // std::cout << "distance(a, b) : " << +distance(distance(b.low, b.high), distance(a.low, a.high)) << std::endl;
+                auto [type, over] = score(a, b);
                 return
                 (
-                    r && (a == b) ? "OK "s :
-                    //r && (a >= b) ? std::format("OVER ({}) ", distance(a.low, a.high) - distance(b.low, b.high)) :
-                    r && (a >= b) ? "OVER ("s + std::to_string(distance(distance(b.low, b.high), distance(a.low, a.high))) + " / " + std::to_string(b.step / a.step) + ") "s :
-                    //r && (a >= b) ? "OVER ("s + std::to_string(distance(a.low, a.high) - distance(b.low, b.high)) + ") "s :
-                                    "KO "s
+                    r && (type == S_OK)   ? "OK "s :
+                    // r && (score == S_OVER) ? std::format("OVER ({}) ", over.distance, over.step) :
+                    r && (type == S_OVER) ? "OVER ("s + std::to_string(over.distance) + " / " + std::to_string(over.step) + ") " :
+                                            "KO "s
                 );
             };
             std::cout << ok(c_not_x, b_not_x, true) << "not x : " << c_not_x << " : " << b_not_x << std::endl;
