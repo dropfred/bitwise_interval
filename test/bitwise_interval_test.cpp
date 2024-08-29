@@ -562,7 +562,10 @@ namespace
 
 int usage(char const * file, int e = -1)
 {
-    std::cerr << "usage: " << file << "[-h] [-d] [-s1] [-s2] [-sa] [-n <num>] type [x.low x.high [x_step] y.low y.high [y_step]]\n";
+    std::cerr << "usage: " << file << " -h\n";
+    std::cerr << "     : " << file << " [-d] [-x] [-s1] [-s2] [-sa] [-n=<num>] <type>\n";
+    std::cerr << "     : " << file << " [-d] [-x] <type> <x low> <x high> <y low> <y high>\n";
+    std::cerr << "     : " << file << " [-d] [-x] <type> <x low> <x high> <x step> <y low> <y high> <y step>\n";
     exit(e);
 }
 
@@ -577,12 +580,12 @@ int main(int argc, char const * argv[])
         {
             {"-h" , [argv] () {usage(argv[0], 0);}},
             {"-d" , [] () {cfg.hex = false;}},
-            {"-h" , [] () {cfg.hex = true;}},
+            {"-x" , [] () {cfg.hex = true;}},
             {"-s1", [] () {cfg.step = Cfg::S_1;}},
             {"-s2", [] () {cfg.step = Cfg::S_PO2;}},
             {"-sa", [] () {cfg.step = Cfg::S_ANY;}},
             {"-n" , [] (std::string const & v) {cfg.num = parse<std::size_t>(v);}}
-        } (&argv[1]);
+        } (args);
 
         if (p == CmdLine::Error)
         {
