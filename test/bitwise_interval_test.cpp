@@ -15,6 +15,9 @@
 #include <set>
 #include <numeric>
 
+#include <variant>
+#include <initializer_list>
+
 #include  <cstdlib> // rand
 // #include <format> // c++20
 
@@ -31,6 +34,103 @@ using namespace std::string_literals;
 
 namespace
 {
+    class CmdLine
+    {
+        std::map<std::string, std::function<bool ()>> ks;
+        std::map<std::string, std::function<bool (std::string const &)>> kvs;
+
+    public :
+
+        static constexpr std::size_t Error = ~std::size_t(0);
+
+        CmdLine() : ks {}, kvs {} {}
+
+        CmdLine(CmdLine const &) = default;
+        CmdLine(CmdLine &&) = default;
+
+        CmdLine & operator = (CmdLine const &) = default;
+
+        struct NF
+        {
+            std::string name;
+            std::variant
+            <
+                std::function<void ()>,
+                std::function<bool ()>,
+                std::function<void (std::string const &)>,
+                std::function<bool (std::string const &)>
+            > fun;
+        };
+
+        CmdLine(std::initializer_list<NF> nfs) : ks {}, kvs {}
+        {
+
+            for (auto const & [n, f] : nfs)
+            {
+                std::visit([&] (auto && f) {add(n, f);}, f);
+            }
+        }
+
+        CmdLine & add(std::string const & k, std::function<bool ()> f)
+        {
+            ks[k] = f;
+            return *this;
+        }
+
+        CmdLine & add(std::string const & k, std::function<void ()> f)
+        {
+            ks[k] = [f] () {f(); return true;};
+            return *this;
+        }
+
+        CmdLine & add(std::string const & k, std::function<bool (std::string const &)> f)
+        {
+            kvs[k] = f;
+            return *this;
+        }
+
+        CmdLine & add(std::string const & k, std::function<void (std::string const &)> f)
+        {
+            kvs[k] = [f] (std::string const & v) {f(v); return true;};
+            return *this;
+        }
+
+        std::size_t operator () (char const * argv[]/*, bool skip_first = true*/) const
+        {
+            std::size_t n = 0;
+
+            for (char const ** c = &argv[/*skip_first ? 1 : */0]; (*c != nullptr) && (**c == '-'); ++c)
+            {
+                ++n;
+
+                std::string s {*c};
+
+                if (s == "--") break;
+
+                auto e = s.find('=');
+                if (e != std::string::npos)
+                {
+                    auto k = s.substr(0, e);
+                    auto v = s.substr(e + 1);
+                    auto f = kvs.find(k);
+                    if ((f == kvs.end()) || !f->second(v))
+                    {
+                        return Error;
+                    }
+                }
+                else
+                {
+                    auto f = ks.find(s);
+                    if ((f == ks.end()) || !f->second())
+                    {
+                        return Error;
+                    }
+                }
+            }
+            return n;
+        }
+    };
+
     struct Cfg
     {
         enum
@@ -463,7 +563,7 @@ namespace
 int usage(char const * file, int e = -1)
 {
     std::cerr << "usage: " << file << "[-h] [-d] [-s1] [-s2] [-sa] [-n <num>] type [x.low x.high [x_step] y.low y.high [y_step]]\n";
-    return -e;
+    exit(e);
 }
 
 int main(int argc, char const * argv[])
@@ -473,53 +573,34 @@ int main(int argc, char const * argv[])
 
     try
     {
-        for (bool done = false; !done && (argc > 1); ++args, --argc)
+        auto p = CmdLine
         {
-            if (*args == "-h"s)
-            {
-                cfg.hex = true;
-            }
-            else if (*args == "-d"s)
-            {
-                cfg.hex = false;
-            }
-            else if (*args == "-s1"s)
-            {
-                cfg.step = Cfg::S_1;
-            }
-            else if (*args == "-s2"s)
-            {
-                cfg.step = Cfg::S_PO2;
-            }
-            else if (*args == "-sa"s)
-            {
-                cfg.step = Cfg::S_ANY;
-            }
-            else if (std::string(*args).starts_with("-n="s))
-            {
-                cfg.num = parse<std::size_t>(*args + 3);
-            }
-            else if (*args == "--"s)
-            {
-                done = true;
-            }
-            else if (*args[0] == '-')
-            {
-                std::cerr << "invalid option '" << *args << "'\n";
-                return usage(argv[0]);
-            }
-            else break;
+            {"-h" , [argv] () {usage(argv[0], 0);}},
+            {"-d" , [] () {cfg.hex = false;}},
+            {"-h" , [] () {cfg.hex = true;}},
+            {"-s1", [] () {cfg.step = Cfg::S_1;}},
+            {"-s2", [] () {cfg.step = Cfg::S_PO2;}},
+            {"-sa", [] () {cfg.step = Cfg::S_ANY;}},
+            {"-n" , [] (std::string const & v) {cfg.num = parse<std::size_t>(v);}}
+        } (&argv[1]);
+
+        if (p == CmdLine::Error)
+        {
+            usage(argv[0]);
         }
+
+        argc -= p;
+        args += p;
     }
     catch (std::exception const &)
     {
-        return usage(argv[0]);
+        usage(argv[0]);
     }
     
     // keep static analysis happy
     if (*args == nullptr)
     {
-        return usage(argv[0]);
+        usage(argv[0]);
     }
 
     if (argc == 2)
@@ -545,7 +626,7 @@ int main(int argc, char const * argv[])
         else
         {
             std::cerr << "invalid type '" << argv[0] << "'\n";
-            return usage(argv[0]);
+            usage(argv[0]);
         }
     }
     else if ((argc == 6) || (argc == 8))
@@ -572,12 +653,12 @@ int main(int argc, char const * argv[])
         else
         {
             std::cerr << "invalid type '" << argv[1] << "'\n";
-            return usage(argv[0]);
+            usage(argv[0]);
         }
     }
     else
     {
-        return usage(argv[0]);
+        usage(argv[0]);
     }
 
     return 0;
