@@ -14,6 +14,7 @@
 #include <cmath>
 #include <set>
 #include <numeric>
+#include <filesystem>
 // #include <format>
 
 #include <variant>
@@ -34,103 +35,6 @@ using namespace std::string_literals;
 
 namespace
 {
-    class CmdLine
-    {
-        std::map<std::string, std::function<bool ()>> ks;
-        std::map<std::string, std::function<bool (std::string const &)>> kvs;
-
-    public :
-
-        static constexpr std::size_t Error = ~std::size_t(0);
-
-        CmdLine() : ks {}, kvs {} {}
-
-        CmdLine(CmdLine const &) = default;
-        CmdLine(CmdLine &&) = default;
-
-        CmdLine & operator = (CmdLine const &) = default;
-
-        struct NF
-        {
-            std::string name;
-            std::variant
-            <
-                std::function<void ()>,
-                std::function<bool ()>,
-                std::function<void (std::string const &)>,
-                std::function<bool (std::string const &)>
-            > fun;
-        };
-
-        CmdLine(std::initializer_list<NF> nfs) : ks {}, kvs {}
-        {
-
-            for (auto const & [n, f] : nfs)
-            {
-                std::visit([&] (auto && f) {add(n, f);}, f);
-            }
-        }
-
-        CmdLine & add(std::string const & k, std::function<bool ()> f)
-        {
-            ks[k] = f;
-            return *this;
-        }
-
-        CmdLine & add(std::string const & k, std::function<void ()> f)
-        {
-            ks[k] = [f] () {f(); return true;};
-            return *this;
-        }
-
-        CmdLine & add(std::string const & k, std::function<bool (std::string const &)> f)
-        {
-            kvs[k] = f;
-            return *this;
-        }
-
-        CmdLine & add(std::string const & k, std::function<void (std::string const &)> f)
-        {
-            kvs[k] = [f] (std::string const & v) {f(v); return true;};
-            return *this;
-        }
-
-        std::size_t operator () (char const * argv[]/*, bool skip_first = true*/) const
-        {
-            std::size_t n = 0;
-
-            for (char const ** c = &argv[/*skip_first ? 1 : */0]; (*c != nullptr) && (**c == '-'); ++c)
-            {
-                ++n;
-
-                std::string s {*c};
-
-                if (s == "--") break;
-
-                auto e = s.find('=');
-                if (e != std::string::npos)
-                {
-                    auto k = s.substr(0, e);
-                    auto v = s.substr(e + 1);
-                    auto f = kvs.find(k);
-                    if ((f == kvs.end()) || !f->second(v))
-                    {
-                        return Error;
-                    }
-                }
-                else
-                {
-                    auto f = ks.find(s);
-                    if ((f == ks.end()) || !f->second())
-                    {
-                        return Error;
-                    }
-                }
-            }
-            return n;
-        }
-    };
-
     struct Cfg
     {
         enum
@@ -596,25 +500,137 @@ namespace
 #endif
         }
     }
-}
 
-int usage(char const * file, int e = -1)
-{
-    std::cerr << "usage: " << file << " -h\n";
-    std::cerr << "     : " << file << " [-d] [-x] [-s1] [-s2] [-sa] [-n=<num>] <type>\n";
-    std::cerr << "     : " << file << " [-d] [-x] <type> <x low> <x high> <y low> <y high>\n";
-    std::cerr << "     : " << file << " [-d] [-x] <type> <x low> <x high> <x step> <y low> <y high> <y step>\n";
-    exit(e);
-}
+    [[noreturn]] int usage(char const * file, int e = -1)
+    {
+        auto p = (std::filesystem::path {file}).filename().string();
+        std::cerr << "usage: " << p << " -h\n";
+        std::cerr << "     : " << p << " [-d] [-x] [-s1] [-s2] [-sa] [-n=<num>] <type>\n";
+        std::cerr << "     : " << p << " [-d] [-x] <type> <x low> <x high> <y low> <y high>\n";
+        std::cerr << "     : " << p << " [-d] [-x] <type> <x low> <x high> <x step> <y low> <y high> <y step>\n";
+        exit(e);
+    }
 
+    class CmdLine
+    {
+        std::map<std::string, std::function<bool ()>> ks;
+        std::map<std::string, std::function<bool (std::string const &)>> kvs;
+
+    public :
+
+        CmdLine() : ks {}, kvs {} {}
+
+        CmdLine(CmdLine const &) = default;
+        CmdLine(CmdLine &&) = default;
+
+        CmdLine & operator = (CmdLine const &) = default;
+
+        struct NF
+        {
+            std::string name;
+            std::variant
+                <
+                std::function<void ()>,
+                std::function<bool ()>,
+                std::function<void (std::string const &)>,
+                std::function<bool (std::string const &)>
+                > fun;
+        };
+
+        CmdLine(std::initializer_list<NF> nfs) : ks {}, kvs {}
+        {
+
+            for (auto const & [n, f] : nfs)
+            {
+                std::visit([&] (auto && f) {add(n, f);}, f);
+            }
+        }
+
+        CmdLine & add(std::string const & k, std::function<bool ()> f)
+        {
+            ks[k] = f;
+            return *this;
+        }
+
+        CmdLine & add(std::string const & k, std::function<void ()> f)
+        {
+            ks[k] = [f] () {f(); return true;};
+            return *this;
+        }
+
+        CmdLine & add(std::string const & k, std::function<bool (std::string const &)> f)
+        {
+            kvs[k] = f;
+            return *this;
+        }
+
+        CmdLine & add(std::string const & k, std::function<void (std::string const &)> f)
+        {
+            kvs[k] = [f] (std::string const & v) {f(v); return true;};
+            return *this;
+        }
+
+        int operator () (char const * argv[], bool skip_first = true) const
+        {
+            auto unk = [] (std::string const & s)
+                {
+                    std::cerr << "unknown option '" << s  << "'\n";
+                    return -1;
+                };
+
+            auto error = [] (std::string const & s)
+                {
+                    std::cerr << "error '" << s  << "'\n";
+                    return -2;
+                };
+
+            int argc = skip_first ? 1 : 0;
+
+            for (char const ** c = &argv[argc]; (*c != nullptr) && (**c == '-'); ++c)
+            {
+                ++argc;
+
+                std::string s {*c};
+
+                if (s == "--"s) break;
+
+                auto e = s.find('=');
+                if (e != std::string::npos)
+                {
+                    auto k = s.substr(0, e);
+                    auto v = s.substr(e + 1);
+                    auto f = kvs.find(k);
+                    if (f == kvs.end())
+                    {
+                        return unk(k);
+                    }
+                    if (!f->second(v))
+                    {
+                        return error(s);
+                    }
+                }
+                else
+                {
+                    auto f = ks.find(s);
+                    if (f == ks.end())
+                    {
+                        return unk(s);
+                    }
+                    if (!f->second())
+                    {
+                        return error(s);
+                    }
+                }
+            }
+            return argc;
+        }
+    };
+}
 int main(int argc, char const * argv[])
 {
-    // skip filename
-    char const ** args = &argv[1];
-
     try
     {
-        auto p = CmdLine
+        int args = CmdLine
         {
             {"-h" , [argv] () {usage(argv[0], 0);}},
             {"-d" , [] () {cfg.hex = false;}},
@@ -622,85 +638,86 @@ int main(int argc, char const * argv[])
             {"-s1", [] () {cfg.step = Cfg::S_1;}},
             {"-s2", [] () {cfg.step = Cfg::S_PO2;}},
             {"-sa", [] () {cfg.step = Cfg::S_ANY;}},
+            //{"-n" , [] (std::string const & v) {try {cfg.num = parse<std::size_t>(v);} catch (...) {return false;} return true;}}
             {"-n" , [] (std::string const & v) {cfg.num = parse<std::size_t>(v);}}
-        } (args);
+        } (argv);
 
-        if (p == CmdLine::Error)
+        if (args < 0)
         {
             usage(argv[0]);
         }
 
-        argc -= p;
-        args += p;
+        argc -= args;
+
+        // keep static analysis happy
+        if (argv[args] == nullptr)
+        {
+            usage(argv[0]);
+            return -1; // [[noreturn]] attribute ignored by vsc intellisense
+        }
+
+        if (argc == 1)
+        {
+            static std::map<std::string, std::function<void (void)>> const tfs =
+            {
+                {"s8" , test_random<int8_t>},
+                {"u8" , test_random<uint8_t>},
+                {"s16", test_random<int16_t>},
+                {"s32", test_random<int32_t>},
+                {"s64", test_random<int64_t>},
+                {"u16", test_random<uint16_t>},
+                {"u32", test_random<uint32_t>},
+                {"u64", test_random<uint64_t>},
+                {"s"  , test_random<int>},
+                {"u"  , test_random<unsigned int>}
+            };
+
+            if (auto f = tfs.find(argv[args]); f != tfs.end())
+            {
+                f->second();
+            }
+            else
+            {
+                std::cerr << "invalid type '" << argv[args] << "'\n";
+                usage(argv[0]);
+            }
+        }
+        else if ((argc == 5) || (argc == 7))
+        {
+            std::function<void (char const **, bool)> dbg = test<int8_t>;
+            static std::map<std::string, std::function<void (char const **, bool)>> const tfs =
+            {
+                {"s8" , test<int8_t>},
+                {"s16", test<int16_t>},
+                {"s32", test<int32_t>},
+                {"s64", test<int64_t>},
+                {"u8" , test<uint8_t>},
+                {"u16", test<uint16_t>},
+                {"u32", test<uint32_t>},
+                {"u64", test<uint64_t>},
+                {"s"  , test<int>},
+                {"u"  , test<unsigned int>}
+            };
+
+            if (auto f = tfs.find(argv[args]); f != tfs.end())
+            {
+                f->second(&argv[args + 1], (argc == 7));
+            }
+            else
+            {
+                std::cerr << "invalid type '" << argv[args] << "'\n";
+                usage(argv[0]);
+            }
+        }
+        else
+        {
+            usage(argv[0]);
+        }
     }
     catch (std::exception const &)
     {
         usage(argv[0]);
-    }
-    
-    // keep static analysis happy
-    if (*args == nullptr)
-    {
-        usage(argv[0]);
-    }
-
-    if (argc == 2)
-    {
-        static std::map<std::string, std::function<void (void)>> const tfs =
-        {
-            {"s8" , test_random<int8_t>},
-            {"u8" , test_random<uint8_t>},
-            {"s16", test_random<int16_t>},
-            {"s32", test_random<int32_t>},
-            {"s64", test_random<int64_t>},
-            {"u16", test_random<uint16_t>},
-            {"u32", test_random<uint32_t>},
-            {"u64", test_random<uint64_t>},
-            {"s"  , test_random<int>},
-            {"u"  , test_random<unsigned int>}
-        };
-
-        if (auto f = tfs.find(args[0]); f != tfs.end())
-        {
-            f->second();
-        }
-        else
-        {
-            std::cerr << "invalid type '" << argv[0] << "'\n";
-            usage(argv[0]);
-        }
-    }
-    else if ((argc == 6) || (argc == 8))
-    {
-        std::function<void (char const **, bool)> dbg = test<int8_t>;
-        static std::map<std::string, std::function<void (char const **, bool)>> const tfs =
-        {
-            {"s8" , test<int8_t>},
-            {"s16", test<int16_t>},
-            {"s32", test<int32_t>},
-            {"s64", test<int64_t>},
-            {"u8" , test<uint8_t>},
-            {"u16", test<uint16_t>},
-            {"u32", test<uint32_t>},
-            {"u64", test<uint64_t>},
-            {"s"  , test<int>},
-            {"u"  , test<unsigned int>}
-        };
-
-        if (auto f = tfs.find(args[0]); f != tfs.end())
-        {
-            f->second(args + 1, (argc == 8));
-        }
-        else
-        {
-            std::cerr << "invalid type '" << argv[1] << "'\n";
-            usage(argv[0]);
-        }
-    }
-    else
-    {
-        usage(argv[0]);
-    }
+    }    
 
     return 0;
 }
