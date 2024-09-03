@@ -14,15 +14,22 @@
 template <typename T>
 constexpr T msb = T(std::make_unsigned_t<T>(1) << (sizeof (T) * CHAR_BIT - 1));
 
-template <typename T>
-auto get_step2(T n)
+template <typename UT>
+requires (std::is_unsigned_v<UT>)
+auto get_step2(UT n)
 {
-    assert(n != 0);
-    using UT = std::make_unsigned_t<T>;
-    UT s = 1;
-    while ((n & s) == 0)
+    UT s;
+    if ((n & (n - 1)) == 0)
     {
-        s <<= 1;
+        s = n;
+    }
+    else
+    {
+        s = 1;
+        while ((n & s) == 0)
+        {
+            s <<= 1;
+        }
     }
     return s;
 }
@@ -46,15 +53,19 @@ template <typename T, typename UT>
 requires (std::is_same_v<UT, std::make_unsigned_t<T>>)
 auto umod(T n, UT d)
 {
-    auto m = uabs(n) % d;
-    if constexpr (std::is_signed_v<T>)
+    UT m = d;
+    if (d != 0)
     {
-        if (n < 0)
+        m = uabs(n) % d;
+        if constexpr (std::is_signed_v<T>)
         {
-            m = (d - m) % d;
+            if (n < 0)
+            {
+                m = (d - m) % d;
+            }
         }
     }
-    return UT(m);
+    return m;
 }
 
 template <typename T>
@@ -66,19 +77,20 @@ struct Interval
     Type low, high;
     UType step;
 
-    // left unitialized ?
+    // unitialized
     Interval() {}
 
     Interval(Type low, Type high, UType step = 1) : low(low), high(high), step(step)
     {
-        assert(this->step != 0);
-        assert(this->low <= this->high);
-        assert(umod(this->low, this->step) == umod(this->high, this->step));
-        // assert((this->low != this->high) || (this->step == 1));
-        if (is_singleton())
+        assert(low <= high);
+        if (low != high)
         {
-            // this->step = msb<UType>;
-            this->step = 1;
+            assert(step != 0);
+            assert(umod(low, step) == umod(high, step));
+        }
+        else
+        {
+            this->step = 0;
         }
     }
 
@@ -98,43 +110,50 @@ struct Interval
 
     Type round_up(Type v) const
     {
-        UType r  = umod(low, step);
-        UType sr = umod(v  , step);
-        if (sr <= r)
+        assert(v >= low);
+        if (!is_singleton())
         {
-            v += r - sr;
-        }
-        else
-        {
-            v += step - (sr - r);
+            UType r  = umod(low, step);
+            UType sr = umod(v  , step);
+            if (sr <= r)
+            {
+                v += r - sr;
+            }
+            else
+            {
+                v += step - (sr - r);
+            }
         }
         return v;
     }
 
     Type round_down(Type v) const
     {
-        UType r  = umod(low, step);
-        UType sr = umod(v  , step);
-        if (sr >= r)
+        assert(v <= high);
+        if (!is_singleton())
         {
-            v -= sr - r;
-        }
-        else
-        {
-            v -= (step - r) + sr;
+            UType r  = umod(low, step);
+            UType sr = umod(v  , step);
+            if (sr >= r)
+            {
+                v -= sr - r;
+            }
+            else
+            {
+                v -= (step - r) + sr;
+            }
         }
         return v;
     }
 
     Interval sub(T low, T high) const
     {
-        assert((low >= this->low) && (high <= this->high));
         return {round_up(low), round_down(high), step};
     }
 
     bool is_singleton() const
     {
-        return (low == high);
+        return (step == 0);
     }
 };
 
@@ -208,28 +227,32 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
         auto low_x = x, high_x = x;
         auto low_y = y, high_y = y;
 
-        T step_x = x.is_singleton() ? msb<T> : get_step2(x.step);
-        T step_y = y.is_singleton() ? msb<T> : get_step2(y.step);
+        T step;
+        T step_x = get_step2(x.step);
+        T step_y = get_step2(y.step);
 
-        T rem_x = (step_x - 1) & x.low;
-        T rem_y = (step_y - 1) & y.low;
+        {
+            T f = (~(step_x - 1) | x.low) & (~(step_y - 1) | y.low);
 
-        while ((step_x < step_y) && ((step_x & rem_y) == 0))
-        {
-            step_x <<= 1;
-        }
-        while ((step_y < step_x) && ((step_y & rem_x) == 0))
-        {
-            step_y <<= 1;
+            for (step = std::min(T(step_x - 1), T(step_y - 1)) + 1; (step != 0) && ((step & f) == 0); step <<= 1)
+            {
+                // f &= ~step;
+                //if ((x.low & T(step - 1)) == (x.high & T(step - 1)))
+                //{
+                //    f &= x.low;
+                //}
+                //if ((y.low & T(step - 1)) == (y.high & T(step - 1)))
+                //{
+                //    f &= y.low;
+                //}
+            }
         }
 
         T flip_x = ~(step_x - 1);
         T flip_y = ~(step_y - 1);
 
-        rem_x = ~flip_x & x.low;
-        rem_y = ~flip_y & y.low;
-
-        T step = std::min(step_x, step_y);
+        T rem_x = ~flip_x & x.low;
+        T rem_y = ~flip_y & y.low;
 
         for (T b = msb<T>; b != 0; b >>= 1)
         {
@@ -392,11 +415,11 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
         T low  = 0;
         T high = 0;
 
-        T step_x = x.is_singleton() ? msb<T> : get_step2(x.step);
-        T step_y = y.is_singleton() ? msb<T> : get_step2(y.step);
+        T step_x = get_step2(x.step);
+        T step_y = get_step2(y.step);
 
         // TODO
-        T step = std::min(step_x, step_y);
+        T step = std::min(T(step_x - 1), T(step_y - 1)) + 1;
 
         T flip = ~(step - 1);
 

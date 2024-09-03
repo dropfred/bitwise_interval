@@ -17,6 +17,7 @@
 #include <filesystem>
 // #include <format>
 
+#include  <utility>
 #include <variant>
 #include <initializer_list>
 
@@ -267,22 +268,16 @@ namespace
             }
             if (j == y.high) break;
         }
-        // return ((c_not_x == b_not_x) && (c_not_y == b_not_y));
 
-        auto c_and = and_interval(x, y);
-        auto c_or  = or_interval(x, y);
-        auto c_xor = xor_interval(x, y);
+        auto c_and_xy = and_interval(x, y);
+        auto c_or_xy  = or_interval(x, y);
+        auto c_xor_xy = xor_interval(x, y);
 
-        struct
-        {
-            UT rem;
-            bool ok = true;
-        } r_and {umod(c_and.low, c_and.step)}, r_or {umod(c_or.low, c_or.step)}, r_xor {umod(c_xor.low, c_xor.step)};
 
-        Interval<T> b_and, b_or, b_xor;
+        Interval<T> b_and_xy, b_or_xy, b_xor_xy;
 
-        b_and.low  = b_or.low  = b_xor.low  = std::numeric_limits<T>::max();
-        b_and.high = b_or.high = b_xor.high = std::numeric_limits<T>::min();
+        b_and_xy.low  = b_or_xy.low  = b_xor_xy.low  = std::numeric_limits<T>::max();
+        b_and_xy.high = b_or_xy.high = b_xor_xy.high = std::numeric_limits<T>::min();
 
         constexpr bool BRUTE_STEP = sizeof (T) <= BRUTE_STEP_MAX;
 
@@ -300,8 +295,8 @@ namespace
 
             UT get_step() const
             {
-                UT s = 1;
-                if (vs.size() > 1)
+                UT s = (vs.size() > 1) ? 1 : 0;
+                if (s > 0)
                 {
                     auto j = vs.begin();
                     auto i = j++;
@@ -313,7 +308,7 @@ namespace
                 }
                 return s;
             }
-        } s_and {}, s_or {}, s_xor {};
+        } s_and_xy {}, s_or_xy {}, s_xor_xy {};
 
         for (T i = x.low; ; i += x.step)
         {
@@ -322,48 +317,36 @@ namespace
                 T r;
 
                 r = i & j;
-                s_and.add(r);
-                if (r < b_and.low)
+                s_and_xy.add(r);
+                if (r < b_and_xy.low)
                 {
-                    b_and.low = r;
+                    b_and_xy.low = r;
                 }
-                if (r > b_and.high)
+                if (r > b_and_xy.high)
                 {
-                    b_and.high = r;
-                }
-                if (umod(r, c_and.step) != r_and.rem)
-                {
-                    r_and.ok = false;
+                    b_and_xy.high = r;
                 }
 
                 r = i | j;
-                s_or.add(r);
-                if (r < b_or.low)
+                s_or_xy.add(r);
+                if (r < b_or_xy.low)
                 {
-                    b_or.low = r;
+                    b_or_xy.low = r;
                 }
-                if (r > b_or.high)
+                if (r > b_or_xy.high)
                 {
-                    b_or.high = r;
-                }
-                if (umod(r, c_or.step) != r_or.rem)
-                {
-                    r_or.ok = false;
+                    b_or_xy.high = r;
                 }
 
                 r = i ^ j;
-                s_xor.add(r);
-                if (r < b_xor.low)
+                s_xor_xy.add(r);
+                if (r < b_xor_xy.low)
                 {
-                    b_xor.low = r;
+                    b_xor_xy.low = r;
                 }
-                if (r > b_xor.high)
+                if (r > b_xor_xy.high)
                 {
-                    b_xor.high = r;
-                }
-                if (umod(r, c_xor.step) != r_xor.rem)
-                {
-                    r_xor.ok = false;
+                    b_xor_xy.high = r;
                 }
 
                 if (j == y.high) break;
@@ -374,37 +357,37 @@ namespace
 
         if constexpr (BRUTE_STEP)
         {
-            b_and.step = s_and.get_step();
-            b_or.step  = s_or.get_step();
-            b_xor.step = s_xor.get_step();
+            b_and_xy.step = s_and_xy.get_step();
+            b_or_xy.step  = s_or_xy.get_step();
+            b_xor_xy.step = s_xor_xy.get_step();
         }
         else
         {
-            b_and.step = c_and.step;
-            b_or.step  = c_or.step;
-            b_xor.step = c_xor.step;
+            b_and_xy.step = c_and_xy.step;
+            b_or_xy.step  = c_or_xy.step;
+            b_xor_xy.step = c_xor_xy.step;
         }
 
-        bool ok = (c_not_x >= b_not_x) && (c_not_y >= b_not_y) && (c_and >= b_and) && r_and.ok && (c_or >= b_or) && r_or.ok && (c_xor >= b_xor) && r_xor.ok;
+        bool ok = (c_not_x >= b_not_x) && (c_not_y >= b_not_y) && (c_and_xy >= b_and_xy) && (c_or_xy >= b_or_xy) && (c_xor_xy >= b_xor_xy);
 
         if (!ok || trace)
         {
-            auto ok = [] (Interval<T> const & a, Interval<T> const & b, bool r)
+            auto ok = [] (Interval<T> const & a, Interval<T> const & b)
             {
                 auto [type, over] = score(a, b);
                 return
                 (
-                    r && (type == S_OK)   ? "OK "s :
-                    // r && (score == S_OVER) ? std::format("OVER ({}) ", over.distance, over.step) :
-                    r && (type == S_OVER) ? "OVER ("s + std::to_string(over.distance) + " / " + std::to_string(over.step) + ") " :
-                                            "KO "s
+                    (type == S_OK)   ? "OK "s :
+                    // (score == S_OVER) ? std::format("OVER ({} / {}) ", over.distance, over.step) :
+                    (type == S_OVER) ? "OVER ("s + std::to_string(over.distance) + " / " + std::to_string(over.step) + ") " :
+                                       "KO "s
                 );
             };
-            std::cout << ok(c_not_x, b_not_x, true) << "not x : " << c_not_x << " : " << b_not_x << std::endl;
-            std::cout << ok(c_not_y, b_not_y, true) << "not y : " << c_not_y << " : " << b_not_y << std::endl;
-            std::cout << ok(c_and, b_and, r_and.ok) << "and x y : " << c_and << " : " << b_and << std::endl;
-            std::cout << ok(c_or , b_or , r_or.ok ) << "or x y : " << c_or  << " : " << b_or  << std::endl;
-            std::cout << ok(c_xor, b_xor, r_xor.ok) << "xor x y : " << c_xor  << " : " << b_xor  << std::endl;
+            std::cout << ok(c_not_x , b_not_x ) << "not x   : " << c_not_x  << " : " << b_not_x  << std::endl;
+            std::cout << ok(c_not_y , b_not_y ) << "not y   : " << c_not_y  << " : " << b_not_y  << std::endl;
+            std::cout << ok(c_and_xy, b_and_xy) << "and x y : " << c_and_xy << " : " << b_and_xy << std::endl;
+            std::cout << ok(c_or_xy , b_or_xy ) << "or x y  : " << c_or_xy  << " : " << b_or_xy  << std::endl;
+            std::cout << ok(c_xor_xy, b_xor_xy) << "xor x y : " << c_xor_xy << " : " << b_xor_xy << std::endl;
         }
 
         return ok;
@@ -420,16 +403,20 @@ namespace
             char const ** a = args;
             i.low  = parse<T>(*a++);
             i.high = parse<T>(*a++);            
-            i.step = step ? parse<T>(*a++) : 1;
+            i.step = step ? parse<T>(*a++) : ((i.low == i.high) ? 0 : 1);
             j.low  = parse<T>(*a++);
             j.high = parse<T>(*a++);
-            j.step = step ? parse<T>(*a++) : 1;
+            j.step = step ? parse<T>(*a++) : ((j.low == j.high) ? 0 : 1);
             assert
             (
-                (i.low <= i.high) &&
-                (j.low <= j.high) &&
-                (i.step > 0) &&
-                (j.step > 0)
+                (
+                    ((i.low <  i.high) && (i.step >  0)) ||
+                    ((i.low == i.high) && (i.step == 0))
+                ) &&
+                (
+                    ((j.low <  j.high) && (j.step >  0)) ||
+                    ((j.low == j.high) && (j.step == 0))
+                )
             );
         }
         catch(std::exception const &)
@@ -525,17 +512,14 @@ namespace
 
         CmdLine & operator = (CmdLine const &) = default;
 
-        struct NF
-        {
-            std::string name;
-            std::variant
-                <
-                std::function<void ()>,
-                std::function<bool ()>,
-                std::function<void (std::string const &)>,
-                std::function<bool (std::string const &)>
-                > fun;
-        };
+        using F = std::variant
+        <
+            std::function<void ()>,
+            std::function<bool ()>,
+            std::function<void (std::string const &)>,
+            std::function<bool (std::string const &)>
+        >;
+        using NF = std::pair<std::string, F>;
 
         CmdLine(std::initializer_list<NF> nfs) : ks {}, kvs {}
         {
@@ -573,16 +557,16 @@ namespace
         int operator () (char const * argv[], bool skip_first = true) const
         {
             auto unk = [] (std::string const & s)
-                {
-                    std::cerr << "unknown option '" << s  << "'\n";
-                    return -1;
-                };
+            {
+                std::cerr << "unknown option '" << s  << "'\n";
+                return -1;
+            };
 
             auto error = [] (std::string const & s)
-                {
-                    std::cerr << "error '" << s  << "'\n";
-                    return -2;
-                };
+            {
+                std::cerr << "error '" << s  << "'\n";
+                return -2;
+            };
 
             int argc = skip_first ? 1 : 0;
 
@@ -626,8 +610,45 @@ namespace
         }
     };
 }
+
+template <typename T>
+void test_all2(T low = std::numeric_limits<T>::min(), T high = std::numeric_limits<T>::max())
+{
+    using I = Interval<T>;
+    using UT = I::UType;
+
+    size_t n = 0;
+
+    for (UT sx = 1; sx <= high ; sx <<= 1)
+    {
+        for (UT sy = 1; sy <= high ; sy <<= 1)
+        {
+            for (T lx = low; ; ++lx)
+            {
+                for (T hx = lx; ; hx += sx)
+                {
+                    for (T ly = low; ; ++ly)
+                    {
+                        for (T hy = ly; ; hy += sy)
+                        {
+                            if (!test_interval(I {lx, hx, sx}, I {ly, hy, sy}, true)) return;
+                            if (hy >= (high - sy)) break;
+                        }
+                        if (ly == high) break;
+                    }
+                    if (hx >= (high - sx)) break;
+                }
+                if (lx == high) break;
+            }
+        }
+    }
+}
+
 int main(int argc, char const * argv[])
 {
+    //test_all2<std::uint8_t>(0, 7);
+    //return 0;
+
     try
     {
         int args = CmdLine
@@ -638,7 +659,7 @@ int main(int argc, char const * argv[])
             {"-s1", [] () {cfg.step = Cfg::S_1;}},
             {"-s2", [] () {cfg.step = Cfg::S_PO2;}},
             {"-sa", [] () {cfg.step = Cfg::S_ANY;}},
-            //{"-n" , [] (std::string const & v) {try {cfg.num = parse<std::size_t>(v);} catch (...) {return false;} return true;}}
+            // {"-n" , [] (std::string const & v) {try {cfg.num = parse<std::size_t>(v);} catch (...) {return false;} return true;}}
             {"-n" , [] (std::string const & v) {cfg.num = parse<std::size_t>(v);}}
         } (argv);
 
