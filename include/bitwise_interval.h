@@ -241,10 +241,12 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
                 if ((x.low & fr) == (x.high & fr))
                 {
                     f &= x.low;
+                     step = std::max(T(step - 1), T(step_y - 1)) + 1;
                 }
                 if ((y.low & fr) == (y.high & fr))
                 {
                     f &= y.low;
+                     step = std::max(T(step - 1), T(step_x - 1)) + 1;
                 }
             }
         }
