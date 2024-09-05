@@ -233,18 +233,19 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
 
         {
             T f = (~(step_x - 1) | x.low) & (~(step_y - 1) | y.low);
-
-            for (step = std::min(T(step_x - 1), T(step_y - 1)) + 1; (step != 0) && ((step & f) == 0); step <<= 1)
+            step = step = std::min(T(step_x - 1), T(step_y - 1)) + 1;
+            while (((step & f) == 0) && (step != 0))
             {
-                // f &= ~step;
-                //if ((x.low & T(step - 1)) == (x.high & T(step - 1)))
-                //{
-                //    f &= x.low;
-                //}
-                //if ((y.low & T(step - 1)) == (y.high & T(step - 1)))
-                //{
-                //    f &= y.low;
-                //}
+                step <<= 1;
+                T fr = ~(step - 1);
+                if ((x.low & fr) == (x.high & fr))
+                {
+                    f &= x.low;
+                }
+                if ((y.low & fr) == (y.high & fr))
+                {
+                    f &= y.low;
+                }
             }
         }
 
