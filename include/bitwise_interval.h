@@ -238,12 +238,14 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
             {
                 step <<= 1;
                 T fr = ~(step - 1);
-                if ((x.low & fr) == (x.high & fr))
+                // if ((x.low & fr) == (x.high & fr))
+                if (((x.low ^ x.high) & fr) == 0)
                 {
                     f &= x.low;
                      step = std::max(T(step - 1), T(step_y - 1)) + 1;
                 }
-                if ((y.low & fr) == (y.high & fr))
+                // if ((y.low & fr) == (y.high & fr))
+                if (((y.low ^ y.high) & fr) == 0)
                 {
                     f &= y.low;
                      step = std::max(T(step - 1), T(step_x - 1)) + 1;
@@ -361,7 +363,7 @@ Interval<T> or_interval(Interval<T> const & x, Interval<T> const & y)
 {
     return not_interval(and_interval(not_interval(x), not_interval(y)));
 }
-
+#if 0
 template <typename T>
 Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
 {
@@ -523,6 +525,17 @@ Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
 
         return {low, high, step};
     }
+}
+#endif
+template <typename T>
+Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
+{
+    // return x;
+    return or_interval
+    (
+        and_interval(x, not_interval(y)),
+        and_interval(not_interval(x), y)
+    );
 }
 
 #endif
