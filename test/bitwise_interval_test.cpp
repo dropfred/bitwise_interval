@@ -646,9 +646,6 @@ void test_all2(T low = std::numeric_limits<T>::min(), T high = std::numeric_limi
 
 int main(int argc, char const * argv[])
 {
-    //test_all2<std::uint8_t>(0, 7);
-    //return 0;
-
     try
     {
         int args = CmdLine

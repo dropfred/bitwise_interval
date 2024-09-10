@@ -172,6 +172,7 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
         using I  = Interval<T>;
         using UI = Interval<UT>;
 
+        // loops
         bool l_x = (x.low < 0) && (x.high >= 0);
         bool l_y = (y.low < 0) && (y.high >= 0);
 
@@ -186,29 +187,31 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
             I np = and_interval(UI {nx}, UI {py});
             I pn = and_interval(UI {px}, UI {ny});
             I pp = and_interval(UI {px}, UI {py});
-            // return
-            // {
-            //     std::min({nn.low , np.low , pn.low , pp.low }),
-            //     std::max({nn.high, np.high, pn.high, pp.high}),
-            //     std::min({nn.step, np.step, pn.step, pp.step})
-            // };
-            return
+
+            T low   = std::min({nn.low , np.low , pn.low , pp.low });
+            T high  = std::max({nn.high, np.high, pn.high, pp.high});
+            UT step = std::min({UT(nn.step - 1), UT(np.step - 1), UT(pn.step - 1), UT(pp.step - 1)}) + 1;
+            if (((step == 0) && (low != high)) || (umod(low, step) != umod(high, step)))
             {
-                std::min({nn.low , np.low , pn.low , pp.low }),
-                std::max({nn.high, np.high, pn.high, pp.high})
-            };
+                step = 1;
+            }
+
+            return {low, high, step};
         }
         else if (l_x)
         {
             I nx = and_interval(UI {x.sub(x.low, T(-1)) }, UI {y});
             I px = and_interval(UI {x.sub(T(0) , x.high)}, UI {y});
-            /*
-            # x = [11111110 (-2), 00110010 (50)]/52
-            # y = [01011101 (93), 01110101 (117)]/8
-            Assertion failed: umod(this->low, this->step) == umod(this->high, this->step)
-            */
-            // return {std::min(nx.low, px.low), std::max(nx.high, px.high), std::min(nx.step, px.step)};
-            return {std::min(nx.low, px.low), std::max(nx.high, px.high)};
+
+            T low   = std::min(nx.low, px.low);
+            T high  = std::max(nx.high, px.high);
+            UT step = std::min(UT(nx.step - 1), UT(px.step - 1)) + 1;
+            if (((step == 0) && (low != high)) || (umod(low, step) != umod(high, step)))
+            {
+                step = 1;
+            }
+
+            return {low, high, step};
         }
         else if (l_y)
         {
@@ -238,17 +241,15 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
             {
                 step <<= 1;
                 T fr = ~(step - 1);
-                // if ((x.low & fr) == (x.high & fr))
                 if (((x.low ^ x.high) & fr) == 0)
                 {
                     f &= x.low;
-                     step = std::max(T(step - 1), T(step_y - 1)) + 1;
+                    step = std::max(T(step - 1), T(step_y - 1)) + 1;
                 }
-                // if ((y.low & fr) == (y.high & fr))
                 if (((y.low ^ y.high) & fr) == 0)
                 {
                     f &= y.low;
-                     step = std::max(T(step - 1), T(step_x - 1)) + 1;
+                    step = std::max(T(step - 1), T(step_x - 1)) + 1;
                 }
             }
         }
@@ -351,7 +352,7 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
 
         if (low == high)
         {
-            step = 1;
+            step = 0;
         }
 
         return {low, high, step};
@@ -363,174 +364,10 @@ Interval<T> or_interval(Interval<T> const & x, Interval<T> const & y)
 {
     return not_interval(and_interval(not_interval(x), not_interval(y)));
 }
-#if 0
+
 template <typename T>
 Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
 {
-    if constexpr (std::is_signed_v<T>)
-    {
-        using UT = std::make_unsigned_t<T>;
-        using I  = Interval<T>;
-        using UI = Interval<UT>;
-
-        bool l_x = (x.low < 0) && (x.high >= 0);
-        bool l_y = (y.low < 0) && (y.high >= 0);
-
-        if (l_x && l_y)
-        {
-            I nx = x.sub(x.low, T(-1) );
-            I px = x.sub(T(0) , x.high);
-            I ny = y.sub(y.low, T(-1) );
-            I py = y.sub(T(0) , y.high);
-
-            I nn = xor_interval(UI {nx}, UI {ny});
-            I np = xor_interval(UI {nx}, UI {py});
-            I pn = xor_interval(UI {px}, UI {ny});
-            I pp = xor_interval(UI {px}, UI {py});
-            // return
-            // {
-            //     std::min({nn.low , np.low , pn.low , pp.low }),
-            //     std::max({nn.high, np.high, pn.high, pp.high}),
-            //     std::min({nn.step, np.step, pn.step, pp.step})
-            // };
-            return
-            {
-                std::min({nn.low , np.low , pn.low , pp.low }),
-                std::max({nn.high, np.high, pn.high, pp.high})
-            };
-        }
-        else if (l_x)
-        {
-            I nx = xor_interval(UI {x.sub(x.low, T(-1) )}, UI {y});
-            I px = xor_interval(UI {x.sub(T(0) , x.high)}, UI {y});
-            // return {std::min(nx.low, px.low), std::max(nx.high, px.high), std::min(nx.step, px.step)};
-            return {std::min(nx.low, px.low), std::max(nx.high, px.high)};
-        }
-        else if (l_y)
-        {
-            return xor_interval(y, x);
-        }
-        else
-        {
-            return xor_interval(UI {x}, UI {y});
-        }
-    }
-    else
-    {
-        T low  = 0;
-        T high = 0;
-
-        T step_x = get_step2(x.step);
-        T step_y = get_step2(y.step);
-
-        // TODO
-        T step = std::min(T(step_x - 1), T(step_y - 1)) + 1;
-
-        T flip = ~(step - 1);
-
-        T rem_x = ~flip & x.low;
-        T rem_y = ~flip & y.low;
-
-        auto low_x = x, high_x = x;
-        auto low_y = y, high_y = y;
-
-        for (T b = msb<T>; b != 0; b >>= 1)
-        {
-            T rem = b - 1;
-
-            // low
-            {
-                bool f_x = ((low_x.low ^ low_x.high) & b) != 0;
-                bool f_y = ((low_y.low ^ low_y.high) & b) != 0;
-
-                if (f_x && f_y)
-                {
-                    low_x.low = low_x.high = rem_x;
-                    low_y.low = low_y.high = rem_y;
-                }
-                else if (f_x)
-                {
-                    if ((low_y.high & b) == 0)
-                    {
-                        low_x.high = (flip & rem) | rem_x;
-                    }
-                    else
-                    {
-                        low_x.low = rem_x;
-                    }
-                }
-                else if (f_y)
-                {
-                    if ((low_x.high & b) == 0)
-                    {
-                        low_y.high = (flip & rem) | rem_y;
-                    }
-                    else
-                    {
-                        low_y.low = rem_y;
-                    }
-                }
-                else
-                {
-                    low |= (low_x.low ^ low_y.low) & b;
-                }
-            }
-
-            // high
-            {
-                bool f_x = ((high_x.low ^ high_x.high) & b) != 0;
-                bool f_y = ((high_y.low ^ high_y.high) & b) != 0;
-
-                if (f_x && f_y)
-                {
-                    high |= b;
-                    high_x.low = high_x.high = rem_x;
-                    high_y.low = high_y.high = (rem & flip) | rem_y;
-                }
-                else if (f_x)
-                {
-                    high |= b;
-                    if ((high_y.high & b) == 0)
-                    {
-                        high_x.low = rem_x;
-                    }
-                    else
-                    {
-                        high_x.high = (flip & rem) | rem_x;
-                    }
-                }
-                else if (f_y)
-                {
-                    high |= b;
-                    if ((high_x.high & b) == 0)
-                    {
-                        high_y.low = rem_y;
-                    }
-                    else
-                    {
-                        high_y.high = (flip & rem) | rem_y;
-                    }
-                }
-                else
-                {
-                    high |= (high_x.low ^ high_y.low) & b;
-                }
-            }
-        }
-
-        if (low == high)
-        {
-            step = 1;
-        }
-
-        return {low, high, step};
-    }
-}
-#endif
-template <typename T>
-Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
-{
-    // return x;
     return or_interval
     (
         and_interval(x, not_interval(y)),
