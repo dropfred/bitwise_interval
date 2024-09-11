@@ -16,6 +16,7 @@
 #include <numeric>
 #include <filesystem>
 // #include <format>
+#include <climits>
 
 #include  <utility>
 #include <variant>
@@ -68,36 +69,56 @@ namespace
         );
     }
 
-    template <typename T> struct Dbg
+    template <typename T>
+    struct Dbg
     {
         T value;
         // bool force_decimal = false;
-        Dbg(T value) : value(value) {}
+        bool padding;
+        Dbg(T value, bool padding = true) : value(value), padding(padding) {}
     };
 
     template <typename T>
     std::ostream & operator << (std::ostream & os, Dbg<T> const & v)
     {
+        // auto pad = [&os, p = v.padding] () -> std::ostream &
+        // {
+        //     if (p)
+        //     {
+        //         os << std::uppercase << std::setw(2 * sizeof (T)) << std::setfill('0');
+        //     }
+        //     return os;
+        // };
         if constexpr (sizeof (T) == 1)
         {
             if (cfg.hex)
             {
-                os << std::bitset<CHAR_BIT>((unsigned long long)(v.value)) << " (" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << (v.value & 0xFF) << ")";
+                // os << std::bitset<CHAR_BIT>((unsigned long long)(v.value)) << " (" << pad() << std::hex << (v.value & 0xFF) << ")";
+                os << std::bitset<CHAR_BIT>((unsigned long long)(v.value)) << " (" << std::setw(2) << std::setfill('0') << std::hex << std::uppercase << (v.value & 0xFF) << ")";
             }
             else
             {
-                os << std::bitset<CHAR_BIT>((unsigned long long)(v.value)) << " (" <<  std::dec << +v.value << ")";
+                os << std::bitset<CHAR_BIT>((unsigned long long)(v.value)) << " (" << std::setw(0) << std::dec << +v.value << ")";
             }
         }
         else
         {
             if (cfg.hex)
             {
-                os << std::hex << std::uppercase << std::setw(2 * sizeof (T) / CHAR_BIT) << std::setfill('0') << v.value;
+                // os << std::hex << std::uppercase << pad() << v.value;
+                if (v.padding)
+                {
+                    os << std::setw(2 * sizeof (T)) << std::setfill('0');
+                }
+                else
+                {
+                    os << std::setw(0);
+                }
+                os << std::hex << std::uppercase << v.value;
             }
             else
             {
-                os << std::dec << v.value;
+                os << std::setw(0) << std::dec << v.value;
             }
         }
         return os;
@@ -115,7 +136,7 @@ namespace
             os << '[' << Dbg {i.low} << ", " << Dbg  {i.high} << "]";
             if (i.step > 1)
             {
-                os << "/" << Dbg {+i.step};
+                os << "/" << Dbg {+i.step, false};
             }
         }
         return os;
