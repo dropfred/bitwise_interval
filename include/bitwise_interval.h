@@ -190,11 +190,12 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
 
             T low   = std::min({nn.low , np.low , pn.low , pp.low });
             T high  = std::max({nn.high, np.high, pn.high, pp.high});
-            UT step = std::min({UT(nn.step - 1), UT(np.step - 1), UT(pn.step - 1), UT(pp.step - 1)}) + 1;
-            if (((step == 0) && (low != high)) || (umod(low, step) != umod(high, step)))
-            {
-                step = 1;
-            }
+            // UT step = std::min({UT(nn.step - 1), UT(np.step - 1), UT(pn.step - 1), UT(pp.step - 1)}) + 1;
+            // if (((step == 0) && (low != high)) || (umod(low, step) != umod(high, step)))
+            // {
+            //     step = 1;
+            // }
+            UT step = 1;
 
             return {low, high, step};
         }
@@ -205,11 +206,13 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
 
             T low   = std::min(nx.low, px.low);
             T high  = std::max(nx.high, px.high);
-            UT step = std::min(UT(nx.step - 1), UT(px.step - 1)) + 1;
-            if (((step == 0) && (low != high)) || (umod(low, step) != umod(high, step)))
-            {
-                step = 1;
-            }
+            // KO : s8 0xe5 0x0b 0x26 0x0e 0x3e 0x30
+            // UT step = std::min(UT(nx.step - 1), UT(px.step - 1)) + 1;
+            // if (((step == 0) && (low != high)) || (umod(low, step) != umod(high, step)))
+            // {
+            //     step = 1;
+            // }
+            UT step = 1;
 
             return {low, high, step};
         }
