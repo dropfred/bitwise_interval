@@ -250,8 +250,8 @@ namespace
 
         std::cout << "# x = " << x << "\n# y = " << y << std::endl;
 
-        auto c_not_x = not_interval(x);
-        auto c_not_y = not_interval(y);
+        auto c_not_x = interval_not(x);
+        auto c_not_y = interval_not(y);
 
         Interval<T> b_not_x, b_not_y;
         b_not_x.low  = b_not_y.low  = std::numeric_limits<T>::max();
@@ -290,9 +290,9 @@ namespace
             if (j == y.high) break;
         }
 
-        auto c_and_xy = and_interval(x, y);
-        auto c_or_xy  = or_interval(x, y);
-        auto c_xor_xy = xor_interval(x, y);
+        auto c_and_xy = interval_and(x, y);
+        auto c_or_xy  = interval_or(x, y);
+        auto c_xor_xy = interval_xor(x, y);
 
 
         Interval<T> b_and_xy, b_or_xy, b_xor_xy;

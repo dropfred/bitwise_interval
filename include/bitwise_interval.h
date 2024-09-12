@@ -158,13 +158,13 @@ struct Interval
 };
 
 template <typename T>
-Interval<T> not_interval(Interval<T> const & i)
+Interval<T> interval_not(Interval<T> const & i)
 {
     return {T(~i.high), T(~i.low), i.step};
 }
 
 template <typename T>
-Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
+Interval<T> interval_and(Interval<T> const & x, Interval<T> const & y)
 {
     if constexpr (std::is_signed_v<T>)
     {
@@ -183,10 +183,10 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
             I ny = y.sub(y.low, T(-1) );
             I py = y.sub(T(0) , y.high);
 
-            I nn = and_interval(UI {nx}, UI {ny});
-            I np = and_interval(UI {nx}, UI {py});
-            I pn = and_interval(UI {px}, UI {ny});
-            I pp = and_interval(UI {px}, UI {py});
+            I nn = interval_and(UI {nx}, UI {ny});
+            I np = interval_and(UI {nx}, UI {py});
+            I pn = interval_and(UI {px}, UI {ny});
+            I pp = interval_and(UI {px}, UI {py});
 
             T low   = std::min({nn.low , np.low , pn.low , pp.low });
             T high  = std::max({nn.high, np.high, pn.high, pp.high});
@@ -201,8 +201,8 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
         }
         else if (l_x)
         {
-            I nx = and_interval(UI {x.sub(x.low, T(-1)) }, UI {y});
-            I px = and_interval(UI {x.sub(T(0) , x.high)}, UI {y});
+            I nx = interval_and(UI {x.sub(x.low, T(-1)) }, UI {y});
+            I px = interval_and(UI {x.sub(T(0) , x.high)}, UI {y});
 
             T low   = std::min(nx.low, px.low);
             T high  = std::max(nx.high, px.high);
@@ -218,11 +218,11 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
         }
         else if (l_y)
         {
-            return and_interval(y, x);
+            return interval_and(y, x);
         }
         else
         {
-            return and_interval(UI {x}, UI {y});
+            return interval_and(UI {x}, UI {y});
         }
     }
     else
@@ -363,19 +363,27 @@ Interval<T> and_interval(Interval<T> const & x, Interval<T> const & y)
 }
 
 template <typename T>
-Interval<T> or_interval(Interval<T> const & x, Interval<T> const & y)
+Interval<T> interval_or(Interval<T> const & x, Interval<T> const & y)
 {
-    return not_interval(and_interval(not_interval(x), not_interval(y)));
+    return interval_not(interval_and(interval_not(x), interval_not(y)));
 }
 
 template <typename T>
-Interval<T> xor_interval(Interval<T> const & x, Interval<T> const & y)
+Interval<T> interval_xor(Interval<T> const & x, Interval<T> const & y)
 {
-    return or_interval
+    return interval_or
     (
-        and_interval(x, not_interval(y)),
-        and_interval(not_interval(x), y)
+        interval_and(x, interval_not(y)),
+        interval_and(interval_not(x), y)
     );
 }
+
+// template <typename T>
+// Interval<T> interval_union(std::initializer_list<Interval<T>> is)
+// {
+//     assert(is.size() > 0);
+//     // TODO step
+//     return {std::min(x.low, y.low), std::max(x.high, y.high)};
+// }
 
 #endif
