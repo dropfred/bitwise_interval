@@ -152,17 +152,6 @@ namespace
         return T(std::stoull(str, nullptr, 0));
     }
 
-
-    template <typename T>
-    auto distance(T a, T b)
-    {
-        using UT = std::make_unsigned_t<T>;
-
-        return (a >= 0) ? UT(b - a)
-             : (b <  0) ? UT(UT(b) - UT(a))
-             :            UT(UT(~a) + 1U + UT(b));
-    }
-
 #ifdef DEV_REPLAY_RAND
     class Rand
     {

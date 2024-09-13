@@ -35,6 +35,16 @@ auto get_step2(UT n)
 }
 
 template <typename T>
+auto distance(T a, T b)
+{
+    using UT = std::make_unsigned_t<T>;
+
+    return (a >= 0) ? UT(b - a)
+            : (b <  0) ? UT(UT(b) - UT(a))
+            :            UT(UT(~a) + 1U + UT(b));
+}
+
+template <typename T>
 auto uabs(T n)
 {
     using UT = std::make_unsigned_t<T>;
@@ -158,6 +168,49 @@ struct Interval
 };
 
 template <typename T>
+Interval<T> interval_merge(Interval<T> const & x, Interval<T> const & y)
+{
+    using UT = std::make_unsigned_t<T>;
+
+    T low  = std::min(x.low , y.low );
+    T high = std::max(x.high, y.high);
+    UT step;
+    
+    if (x.is_singleton() && y.is_singleton())
+    {
+        step = distance(low, high);
+    }
+    else
+    {
+        step = x.is_singleton() ? y.step
+             : y.is_singleton() ? x.step
+             : std::gcd(x.step, y.step);
+        UT rx = umod(x.low, step);
+        UT ry = umod(y.low, step);
+        if (rx != ry)
+        {
+            UT dr = (rx < ry) ? distance(rx, ry) : distance(ry, rx);
+            step = std::gcd(step, dr);
+        }
+    }
+    
+    return {low, high, step};
+}
+
+template <typename T>
+Interval<T> interval_merge(std::initializer_list<Interval<T>> intervals)
+{
+    assert(intervals.size() > 0);
+    auto i = intervals.begin(), ie = intervals.end();
+    Interval<T> m = *i++;
+    while (i != ie)
+    {
+        m = interval_merge(m, *i++);
+    }
+    return m;
+}
+
+template <typename T>
 Interval<T> interval_not(Interval<T> const & i)
 {
     return {T(~i.high), T(~i.low), i.step};
@@ -188,33 +241,14 @@ Interval<T> interval_and(Interval<T> const & x, Interval<T> const & y)
             I pn = interval_and(UI {px}, UI {ny});
             I pp = interval_and(UI {px}, UI {py});
 
-            T low   = std::min({nn.low , np.low , pn.low , pp.low });
-            T high  = std::max({nn.high, np.high, pn.high, pp.high});
-            // UT step = std::min({UT(nn.step - 1), UT(np.step - 1), UT(pn.step - 1), UT(pp.step - 1)}) + 1;
-            // if (((step == 0) && (low != high)) || (umod(low, step) != umod(high, step)))
-            // {
-            //     step = 1;
-            // }
-            UT step = 1;
-
-            return {low, high, step};
+            return interval_merge({nn, np, pn, pp});
         }
         else if (l_x)
         {
             I nx = interval_and(UI {x.sub(x.low, T(-1)) }, UI {y});
             I px = interval_and(UI {x.sub(T(0) , x.high)}, UI {y});
 
-            T low   = std::min(nx.low, px.low);
-            T high  = std::max(nx.high, px.high);
-            // KO : s8 0xe5 0x0b 0x26 0x0e 0x3e 0x30
-            // UT step = std::min(UT(nx.step - 1), UT(px.step - 1)) + 1;
-            // if (((step == 0) && (low != high)) || (umod(low, step) != umod(high, step)))
-            // {
-            //     step = 1;
-            // }
-            UT step = 1;
-
-            return {low, high, step};
+            return interval_merge(nx, px);
         }
         else if (l_y)
         {
@@ -377,13 +411,5 @@ Interval<T> interval_xor(Interval<T> const & x, Interval<T> const & y)
         interval_and(interval_not(x), y)
     );
 }
-
-// template <typename T>
-// Interval<T> interval_union(std::initializer_list<Interval<T>> is)
-// {
-//     assert(is.size() > 0);
-//     // TODO step
-//     return {std::min(x.low, y.low), std::max(x.high, y.high)};
-// }
 
 #endif
