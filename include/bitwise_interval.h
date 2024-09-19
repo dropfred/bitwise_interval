@@ -167,6 +167,20 @@ struct Interval
     }
 };
 
+
+template <typename T, typename F>
+Interval<T> interval_reduce(std::initializer_list<Interval<T>> intervals, F f)
+{
+    assert(intervals.size() > 0);
+    auto i = intervals.begin(), ie = intervals.end();
+    Interval<T> m = *i++;
+    while (i != ie)
+    {
+        m = f(m, *i++);
+    }
+    return m;
+}
+
 template <typename T>
 Interval<T> interval_merge(Interval<T> const & x, Interval<T> const & y)
 {
@@ -200,14 +214,7 @@ Interval<T> interval_merge(Interval<T> const & x, Interval<T> const & y)
 template <typename T>
 Interval<T> interval_merge(std::initializer_list<Interval<T>> intervals)
 {
-    assert(intervals.size() > 0);
-    auto i = intervals.begin(), ie = intervals.end();
-    Interval<T> m = *i++;
-    while (i != ie)
-    {
-        m = interval_merge(m, *i++);
-    }
-    return m;
+    return interval_reduce(intervals, [] (Interval<T> const & x, Interval<T> const & y) {return interval_merge(x, y);});
 }
 
 template <typename T>
@@ -397,9 +404,21 @@ Interval<T> interval_and(Interval<T> const & x, Interval<T> const & y)
 }
 
 template <typename T>
+Interval<T> interval_and(std::initializer_list<Interval<T>> intervals)
+{
+    return interval_reduce(intervals, [] (Interval<T> const & x, Interval<T> const & y) {return interval_and(x, y);});
+}
+
+template <typename T>
 Interval<T> interval_or(Interval<T> const & x, Interval<T> const & y)
 {
     return interval_not(interval_and(interval_not(x), interval_not(y)));
+}
+
+template <typename T>
+Interval<T> interval_or(std::initializer_list<Interval<T>> intervals)
+{
+    return interval_reduce(intervals, [] (Interval<T> const & x, Interval<T> const & y) {return interval_or(x, y);});
 }
 
 template <typename T>
@@ -410,6 +429,12 @@ Interval<T> interval_xor(Interval<T> const & x, Interval<T> const & y)
         interval_and(x, interval_not(y)),
         interval_and(interval_not(x), y)
     );
+}
+
+template <typename T>
+Interval<T> interval_xor(std::initializer_list<Interval<T>> intervals)
+{
+    return interval_reduce(intervals, [] (Interval<T> const & x, Interval<T> const & y) {return interval_xor(x, y);});
 }
 
 #endif
