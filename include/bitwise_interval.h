@@ -15,7 +15,7 @@ template <typename T>
 constexpr T msb = T(std::make_unsigned_t<T>(1) << (sizeof (T) * CHAR_BIT - 1));
 
 template <typename UT>
-requires (std::is_unsigned_v<UT>)
+requires std::is_unsigned_v<UT>
 auto get_step2(UT n)
 {
     UT s;
@@ -60,7 +60,7 @@ auto uabs(T n)
 }
 
 template <typename T, typename UT>
-requires (std::is_same_v<UT, std::make_unsigned_t<T>>)
+requires std::is_same_v<UT, std::make_unsigned_t<T>>
 auto umod(T n, UT d)
 {
     UT m = d;
@@ -167,9 +167,12 @@ struct Interval
     }
 };
 
+template <typename T>
+using IntervalBinaryOp = std::function<Interval<T> (Interval<T> const &, Interval<T> const &)>;
 
 template <typename T, typename F>
-Interval<T> interval_reduce(std::initializer_list<Interval<T>> intervals, F f)
+requires std::is_convertible_v<F, IntervalBinaryOp<T>>
+Interval<T> interval_fold(std::initializer_list<Interval<T>> intervals, F f)
 {
     assert(intervals.size() > 0);
     auto i = intervals.begin(), ie = intervals.end();
@@ -214,7 +217,7 @@ Interval<T> interval_merge(Interval<T> const & x, Interval<T> const & y)
 template <typename T>
 Interval<T> interval_merge(std::initializer_list<Interval<T>> intervals)
 {
-    return interval_reduce(intervals, [] (Interval<T> const & x, Interval<T> const & y) {return interval_merge(x, y);});
+    return interval_fold(intervals, [] (Interval<T> const & x, Interval<T> const & y) {return interval_merge(x, y);});
 }
 
 template <typename T>
@@ -406,7 +409,7 @@ Interval<T> interval_and(Interval<T> const & x, Interval<T> const & y)
 template <typename T>
 Interval<T> interval_and(std::initializer_list<Interval<T>> intervals)
 {
-    return interval_reduce(intervals, [] (Interval<T> const & x, Interval<T> const & y) {return interval_and(x, y);});
+    return interval_fold(intervals, [] (Interval<T> const & x, Interval<T> const & y) {return interval_and(x, y);});
 }
 
 template <typename T>
@@ -418,7 +421,7 @@ Interval<T> interval_or(Interval<T> const & x, Interval<T> const & y)
 template <typename T>
 Interval<T> interval_or(std::initializer_list<Interval<T>> intervals)
 {
-    return interval_reduce(intervals, [] (Interval<T> const & x, Interval<T> const & y) {return interval_or(x, y);});
+    return interval_fold(intervals, [] (Interval<T> const & x, Interval<T> const & y) {return interval_or(x, y);});
 }
 
 template <typename T>
@@ -434,7 +437,31 @@ Interval<T> interval_xor(Interval<T> const & x, Interval<T> const & y)
 template <typename T>
 Interval<T> interval_xor(std::initializer_list<Interval<T>> intervals)
 {
-    return interval_reduce(intervals, [] (Interval<T> const & x, Interval<T> const & y) {return interval_xor(x, y);});
+    return interval_fold(intervals, [] (Interval<T> const & x, Interval<T> const & y) {return interval_xor(x, y);});
+}
+
+template <typename T>
+Interval<T> operator ~ (Interval<T> const & i)
+{
+    return interval_not(i);
+}
+
+template <typename T>
+Interval<T> operator & (Interval<T> const & x, Interval<T> const & y)
+{
+    return interval_and(x, y);
+}
+
+template <typename T>
+Interval<T> operator | (Interval<T> const & x, Interval<T> const & y)
+{
+    return interval_or(x, y);
+}
+
+template <typename T>
+Interval<T> operator ^ (Interval<T> const & x, Interval<T> const & y)
+{
+    return interval_xor(x, y);
 }
 
 #endif
