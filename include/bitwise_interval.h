@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <numeric>
 #include <climits>
+#include <functional>
 #include <cassert>
 
 //
@@ -40,8 +41,8 @@ auto distance(T a, T b)
     using UT = std::make_unsigned_t<T>;
 
     return (a >= 0) ? UT(b - a)
-            : (b <  0) ? UT(UT(b) - UT(a))
-            :            UT(UT(~a) + 1U + UT(b));
+         : (b <  0) ? UT(UT(b) - UT(a))
+         :            UT(UT(~a) + 1U + UT(b));
 }
 
 template <typename T>
@@ -87,7 +88,6 @@ struct Interval
     Type low, high;
     UType step;
 
-    // unitialized
     Interval() {}
 
     Interval(Type low, Type high, UType step = 1) : low(low), high(high), step(step)
@@ -100,7 +100,7 @@ struct Interval
         }
         else
         {
-            this->step = 0;
+            assert(step == 0);
         }
     }
 
@@ -111,6 +111,7 @@ struct Interval
     Interval(Interval &&) = default;
 
     Interval & operator = (Interval const &) = default;
+    Interval & operator = (Interval &&) = default;
 
     template <typename X>
     Interval & operator = (Interval<X> const & i)
@@ -156,9 +157,12 @@ struct Interval
         return v;
     }
 
-    Interval sub(T low, T high) const
+    Interval sub(Type low, Type high) const
     {
-        return {round_up(low), round_down(high), step};
+        Type rl = round_up(low);
+        Type rh = round_down(high);
+        UType s = (rl == rh) ? UType(0) : step;
+        return {rl, rh, s};
     }
 
     bool is_singleton() const
@@ -192,7 +196,7 @@ Interval<T> interval_merge(Interval<T> const & x, Interval<T> const & y)
     T low  = std::min(x.low , y.low );
     T high = std::max(x.high, y.high);
     UT step;
-    
+
     if (x.is_singleton() && y.is_singleton())
     {
         step = distance(low, high);
@@ -210,7 +214,7 @@ Interval<T> interval_merge(Interval<T> const & x, Interval<T> const & y)
             step = std::gcd(step, dr);
         }
     }
-    
+
     return {low, high, step};
 }
 
@@ -462,6 +466,48 @@ template <typename T>
 Interval<T> operator ^ (Interval<T> const & x, Interval<T> const & y)
 {
     return interval_xor(x, y);
+}
+
+template <typename T>
+bool operator == (Interval<T> const & a, Interval<T> const & b)
+{
+    return ((a.low == b.low) && (a.high == b.high) && (a.step == b.step));
+}
+
+template <typename T>
+bool operator != (Interval<T> const & a, Interval<T> const & b)
+{
+    return !(a == b);
+}
+
+template <typename T>
+bool operator >= (Interval<T> const & a, Interval<T> const & b)
+{
+    return
+    (
+        (a.low <= b.low) &&
+        (a.high >= b.high) &&
+        (b.is_singleton() || ((a.step <= b.step) && (std::gcd(a.step, b.step) == a.step))) &&
+        (umod(a.low, a.step) == umod(b.low, a.step))
+    );
+}
+
+template <typename T>
+bool operator <= (Interval<T> const & a, Interval<T> const & b)
+{
+    return (b >= a);
+}
+
+template <typename T>
+bool operator < (Interval<T> const & a, Interval<T> const & b)
+{
+    return ((a <= b) && (a != b));
+}
+
+template <typename T>
+bool operator > (Interval<T> const & a, Interval<T> const & b)
+{
+    return (b > a);
 }
 
 #endif

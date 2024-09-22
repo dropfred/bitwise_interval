@@ -10,26 +10,24 @@
 #include <array>
 #include <random>
 #include <limits>
-#include <cassert>
-#include <cmath>
 #include <set>
 #include <numeric>
 #include <filesystem>
-// #include <format>
-#include <climits>
 
-#include  <utility>
+#include <utility>
 #include <variant>
 #include <initializer_list>
 
-#include  <cstdlib> // rand
+#include <cstdlib>
+#include <cassert>
+#include <cmath>
+#include <climits>
 
 using namespace std::string_literals;
 
 #define DEV_REPLAY_RAND
 
 #ifndef INTERVAL_MAX
-// #define INTERVAL_MAX 0x10000U
 #define INTERVAL_MAX 0x1000U
 #endif
 
@@ -52,28 +50,9 @@ namespace
     } cfg;
 
     template <typename T>
-    bool operator == (Interval<T> const & a, Interval<T> const & b)
-    {
-        return ((a.low == b.low) && (a.high == b.high) && (a.step == b.step));
-    }
-
-    template <typename T>
-    bool operator >= (Interval<T> const & a, Interval<T> const & b)
-    {
-        return
-        (
-            (a.low <= b.low) &&
-            (a.high >= b.high) &&
-            (b.is_singleton() || ((a.step <= b.step) && (std::gcd(a.step, b.step) == a.step))) &&
-            (umod(a.low, a.step) == umod(b.low, a.step))
-        );
-    }
-
-    template <typename T>
     struct Dbg
     {
         T value;
-        // bool force_decimal = false;
         bool padding;
         Dbg(T value, bool padding = true) : value(value), padding(padding) {}
     };
@@ -81,19 +60,10 @@ namespace
     template <typename T>
     std::ostream & operator << (std::ostream & os, Dbg<T> const & v)
     {
-        // auto pad = [&os, p = v.padding] () -> std::ostream &
-        // {
-        //     if (p)
-        //     {
-        //         os << std::uppercase << std::setw(2 * sizeof (T)) << std::setfill('0');
-        //     }
-        //     return os;
-        // };
         if constexpr (sizeof (T) == 1)
         {
             if (cfg.hex)
             {
-                // os << std::bitset<CHAR_BIT>((unsigned long long)(v.value)) << " (" << pad() << std::hex << (v.value & 0xFF) << ")";
                 os << std::bitset<CHAR_BIT>((unsigned long long)(v.value)) << " (" << std::setw(2) << std::setfill('0') << std::hex << std::uppercase << (v.value & 0xFF) << ")";
             }
             else
@@ -105,7 +75,6 @@ namespace
         {
             if (cfg.hex)
             {
-                // os << std::hex << std::uppercase << pad() << v.value;
                 if (v.padding)
                 {
                     os << std::setw(2 * sizeof (T)) << std::setfill('0');
@@ -145,11 +114,17 @@ namespace
     template <typename T>
     T parse(std::string const & str)
     {
-        if ((str.size() > 2) && ((str.find("0b") == 0) || (str.find("0B") == 0)))
+        bool b = (str.find("0b") == 0) || (str.find("0B") == 0);
+        T v;
+        if constexpr (std::is_signed_v<T>)
         {
-            return T(std::stoull(str.c_str() + 2, nullptr, 2));
+            v = T(b ? std::stoll(str.c_str() + 2, nullptr, 2) : std::stoll(str, nullptr, 0));
         }
-        return T(std::stoull(str, nullptr, 0));
+        else
+        {
+            v = T(b ? std::stoull(str.c_str() + 2, nullptr, 2) : std::stoull(str, nullptr, 0));
+        }
+        return v;
     }
 
 #ifdef DEV_REPLAY_RAND
@@ -188,9 +163,9 @@ namespace
 
     enum
     {
+        S_KO,
         S_OK,
-        S_OVER,
-        S_KO
+        S_OVER
     };
 
     template <typename T>
@@ -210,7 +185,7 @@ namespace
     template <typename T>
     Score<T> score(Interval<T> const & a, Interval<T> const & b)
     {
-        Score<T> s {S_OVER};
+        Score<T> s {S_KO};
 
         if (a == b)
         {
@@ -221,10 +196,6 @@ namespace
             s.type = S_OVER;
             s.over.distance = distance(distance(b.low, b.high), distance(a.low, a.high));
             s.over.step = b.step / a.step;
-        }
-        else
-        {
-            s.type = S_KO;
         }
 
         return s;
@@ -239,8 +210,8 @@ namespace
 
         std::cout << "# x = " << x << "\n# y = " << y << std::endl;
 
-        auto c_not_x = interval_not(x);
-        auto c_not_y = interval_not(y);
+        auto c_not_x = ~x;
+        auto c_not_y = ~y;
 
         Interval<T> b_not_x, b_not_y;
         b_not_x.low  = b_not_y.low  = std::numeric_limits<T>::max();
@@ -279,10 +250,9 @@ namespace
             if (j == y.high) break;
         }
 
-        auto c_and_xy = interval_and(x, y);
-        auto c_or_xy  = interval_or(x, y);
-        auto c_xor_xy = interval_xor(x, y);
-
+        auto c_and_xy = x & y;
+        auto c_or_xy  = x | y;
+        auto c_xor_xy = x ^ y;
 
         Interval<T> b_and_xy, b_or_xy, b_xor_xy;
 
@@ -305,16 +275,20 @@ namespace
 
             UT get_step() const
             {
-                UT s = (vs.size() > 1) ? 1 : 0;
-                if (s > 0)
+                UT s;
+                if (vs.size() > 1)
                 {
                     auto j = vs.begin();
                     auto i = j++;
-                    s = *j - *i;
+                    s = distance(*i, *j);
                     for (i = j++; (j != vs.end()) && (s > 1); i = j++)
                     {
-                        s = std::gcd(s, *j - *i);
+                        s = std::gcd(s, distance(*i, *j));
                     }
+                }
+                else
+                {
+                    s = 0;
                 }
                 return s;
             }
@@ -388,7 +362,6 @@ namespace
                 return
                 (
                     (type == S_OK)   ? "OK "s :
-                    // (score == S_OVER) ? std::format("OVER ({} / {}) ", over.distance, over.step) :
                     (type == S_OVER) ? "OVER ("s + std::to_string(over.distance) + " / " + std::to_string(over.step) + ") " :
                                        "KO "s
                 );
@@ -406,36 +379,30 @@ namespace
     template <typename T>
     void test(char const ** args, bool step)
     {
-        Interval<T> i, j;
-
         try
         {
-            char const ** a = args;
-            i.low  = parse<T>(*a++);
-            i.high = parse<T>(*a++);            
-            i.step = step ? parse<T>(*a++) : ((i.low == i.high) ? 0 : 1);
-            j.low  = parse<T>(*a++);
-            j.high = parse<T>(*a++);
-            j.step = step ? parse<T>(*a++) : ((j.low == j.high) ? 0 : 1);
-            assert
-            (
-                (
-                    ((i.low <  i.high) && (i.step >  0)) ||
-                    ((i.low == i.high) && (i.step == 0))
-                ) &&
-                (
-                    ((j.low <  j.high) && (j.step >  0)) ||
-                    ((j.low == j.high) && (j.step == 0))
-                )
-            );
+            using UT = std::make_unsigned_t<T>;
+
+            T xl, xh, yl, yh;
+            UT xs, ys;
+
+            {
+                char const ** a = args;
+                xl = parse<T>(*a++);
+                xh = parse<T>(*a++);
+                xs = step ? parse<UT>(*a++) : UT((xl == xh) ? 0 : 1);
+                yl = parse<T>(*a++);
+                yh = parse<T>(*a++);
+                ys = step ? parse<UT>(*a++) : UT((yl == yh) ? 0 : 1);
+            }
+
+            test_interval(Interval<T> {xl, xh, xs}, Interval<T> {yl, yh, ys}, true);
         }
-        catch(std::exception const &)
+        catch(...)
         {
-            std::cerr << "invalid number\n";
+            std::cerr << "invalid interval\n";
             return;
         }
-
-        test_interval(i, j, true);
     }
 
     template <typename T>
@@ -462,14 +429,11 @@ namespace
         }
 
         UT size = UT(dist / step);
-        if constexpr (sizeof (UT) > 2)
-        {
-            if (size > INTERVAL_MAX) {size = INTERVAL_MAX;}
-        }
+        if (size > INTERVAL_MAX) {size = UT(INTERVAL_MAX);}
         size = rand(UT(0), size);
         if (size == UT(0))
         {
-            step = UT(1);
+            step = UT(0);
         }
 
         T high = T(low + size * step);
@@ -492,26 +456,13 @@ namespace
             {
                 break;
             }
-#ifdef __TRUSTINSOFT_ANALYZER__
-            break;
-#endif
         }
-    }
-
-    [[noreturn]] int usage(char const * file, int e = -1)
-    {
-        auto p = (std::filesystem::path {file}).filename().string();
-        std::cerr << "usage: " << p << " -h\n";
-        std::cerr << "     : " << p << " [-d] [-x] [-s1] [-s2] [-sa] [-n=<num>] <type>\n";
-        std::cerr << "     : " << p << " [-d] [-x] <type> <x low> <x high> <y low> <y high>\n";
-        std::cerr << "     : " << p << " [-d] [-x] <type> <x low> <x high> <x step> <y low> <y high> <y step>\n";
-        exit(e);
     }
 
     class CmdLine
     {
-        std::map<std::string, std::function<bool ()>> ks;
-        std::map<std::string, std::function<bool (std::string const &)>> kvs;
+        std::map<std::string, std::function<void ()>> ks;
+        std::map<std::string, std::function<void (std::string const &)>> kvs;
 
     public :
 
@@ -522,45 +473,43 @@ namespace
 
         CmdLine & operator = (CmdLine const &) = default;
 
-        using F = std::variant
+        using Handler = std::variant
         <
             std::function<void ()>,
-            std::function<bool ()>,
-            std::function<void (std::string const &)>,
-            std::function<bool (std::string const &)>
+            std::function<void (std::string const &)>
         >;
-        using NF = std::pair<std::string, F>;
+        using Option = std::pair<std::string, Handler>;
 
-        CmdLine(std::initializer_list<NF> nfs) : ks {}, kvs {}
+        CmdLine(std::initializer_list<Option> os) : ks {}, kvs {}
         {
-
-            for (auto const & [n, f] : nfs)
+            for (auto const & [n, h] : os)
             {
-                std::visit([&] (auto && f) {add(n, f);}, f);
+                std::visit([&] (auto && h) {add(n, h);}, h);
             }
         }
 
-        CmdLine & add(std::string const & k, std::function<bool ()> f)
+        CmdLine & add(std::string const & k, std::function<void ()> f)
         {
             ks[k] = f;
             return *this;
         }
 
-        CmdLine & add(std::string const & k, std::function<void ()> f)
-        {
-            ks[k] = [f] () {f(); return true;};
-            return *this;
-        }
-
-        CmdLine & add(std::string const & k, std::function<bool (std::string const &)> f)
+        CmdLine & add(std::string const & k, std::function<void (std::string const &)> f)
         {
             kvs[k] = f;
             return *this;
         }
 
-        CmdLine & add(std::string const & k, std::function<void (std::string const &)> f)
+        CmdLine & remove(std::string const & k)
         {
-            kvs[k] = [f] (std::string const & v) {f(v); return true;};
+            if (auto i = ks.find(k); i != ks.end())
+            {
+                ks.erase(i);
+            }
+            else if (auto i = kvs.find(k); i != kvs.end())
+            {
+                kvs.erase(i);
+            }
             return *this;
         }
 
@@ -570,12 +519,6 @@ namespace
             {
                 std::cerr << "unknown option '" << s  << "'\n";
                 return -1;
-            };
-
-            auto error = [] (std::string const & s)
-            {
-                std::cerr << "error '" << s  << "'\n";
-                return -2;
             };
 
             int argc = skip_first ? 1 : 0;
@@ -591,66 +534,39 @@ namespace
                 auto e = s.find('=');
                 if (e != std::string::npos)
                 {
-                    auto k = s.substr(0, e);
-                    auto v = s.substr(e + 1);
-                    auto f = kvs.find(k);
-                    if (f == kvs.end())
+                    if (auto f = kvs.find(s.substr(0, e)); f != kvs.end())
                     {
-                        return unk(k);
+                        f->second(s.substr(e + 1));
                     }
-                    if (!f->second(v))
+                    else
                     {
-                        return error(s);
+                        return unk(s);
                     }
                 }
                 else
                 {
-                    auto f = ks.find(s);
-                    if (f == ks.end())
+                    if (auto f = ks.find(s); f != ks.end())
+                    {
+                        f->second();
+                    }
+                    else
                     {
                         return unk(s);
-                    }
-                    if (!f->second())
-                    {
-                        return error(s);
                     }
                 }
             }
             return argc;
         }
     };
-}
 
-template <typename T>
-void test_all2(T low = std::numeric_limits<T>::min(), T high = std::numeric_limits<T>::max())
-{
-    using I = Interval<T>;
-    using UT = I::UType;
-
-    size_t n = 0;
-
-    for (UT sx = 1; sx <= high ; sx <<= 1)
+    [[noreturn]] int usage(char const * file, int e = -1)
     {
-        for (UT sy = 1; sy <= high ; sy <<= 1)
-        {
-            for (T lx = low; ; ++lx)
-            {
-                for (T hx = lx; ; hx += sx)
-                {
-                    for (T ly = low; ; ++ly)
-                    {
-                        for (T hy = ly; ; hy += sy)
-                        {
-                            if (!test_interval(I {lx, hx, sx}, I {ly, hy, sy}, true)) return;
-                            if (hy >= (high - sy)) break;
-                        }
-                        if (ly == high) break;
-                    }
-                    if (hx >= (high - sx)) break;
-                }
-                if (lx == high) break;
-            }
-        }
+        auto p = (std::filesystem::path {file}).filename().string();
+        std::cerr << "usage: " << p << " -h\n";
+        std::cerr << "     : " << p << " [-d] [-x] [-s1] [-s2] [-sa] [-n=<num>] <type>\n";
+        std::cerr << "     : " << p << " [-d] [-x] <type> <x low> <x high> <y low> <y high>\n";
+        std::cerr << "     : " << p << " [-d] [-x] <type> <x low> <x high> <x step> <y low> <y high> <y step>\n";
+        std::exit(e);
     }
 }
 
@@ -666,7 +582,6 @@ int main(int argc, char const * argv[])
             {"-s1", [] () {cfg.step = Cfg::S_1;}},
             {"-s2", [] () {cfg.step = Cfg::S_PO2;}},
             {"-sa", [] () {cfg.step = Cfg::S_ANY;}},
-            // {"-n" , [] (std::string const & v) {try {cfg.num = parse<std::size_t>(v);} catch (...) {return false;} return true;}}
             {"-n" , [] (std::string const & v) {cfg.num = parse<std::size_t>(v);}}
         } (argv);
 
@@ -675,14 +590,17 @@ int main(int argc, char const * argv[])
             usage(argv[0]);
         }
 
-        argc -= args;
+        char const * type = argv[args];
 
-        // keep static analysis happy
-        if (argv[args] == nullptr)
+        // keep static analyzer happy
+        if (type == nullptr)
         {
-            usage(argv[0]);
-            return -1; // [[noreturn]] attribute ignored by vsc intellisense
+            throw;
         }
+
+        auto invalid = [type] () {std::cerr << "invalid type '" << type << "'\n"; throw;};
+
+        argc -= args;
 
         if (argc == 1)
         {
@@ -700,14 +618,13 @@ int main(int argc, char const * argv[])
                 {"u"  , test_random<unsigned int>}
             };
 
-            if (auto f = tfs.find(argv[args]); f != tfs.end())
+            if (auto f = tfs.find(type); f != tfs.end())
             {
                 f->second();
             }
             else
             {
-                std::cerr << "invalid type '" << argv[args] << "'\n";
-                usage(argv[0]);
+                invalid();
             }
         }
         else if ((argc == 5) || (argc == 7))
@@ -727,25 +644,24 @@ int main(int argc, char const * argv[])
                 {"u"  , test<unsigned int>}
             };
 
-            if (auto f = tfs.find(argv[args]); f != tfs.end())
+            if (auto f = tfs.find(type); f != tfs.end())
             {
                 f->second(&argv[args + 1], (argc == 7));
             }
             else
             {
-                std::cerr << "invalid type '" << argv[args] << "'\n";
-                usage(argv[0]);
+                invalid();
             }
         }
         else
         {
-            usage(argv[0]);
+            throw;
         }
     }
-    catch (std::exception const &)
+    catch (...)
     {
         usage(argv[0]);
-    }    
+    }
 
     return 0;
 }
