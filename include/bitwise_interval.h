@@ -189,7 +189,7 @@ Interval<T> interval_fold(std::initializer_list<Interval<T>> intervals, F f)
 }
 
 template <typename T>
-Interval<T> interval_merge(Interval<T> const & x, Interval<T> const & y)
+Interval<T> interval_union(Interval<T> const & x, Interval<T> const & y)
 {
     using UT = std::make_unsigned_t<T>;
 
@@ -219,9 +219,9 @@ Interval<T> interval_merge(Interval<T> const & x, Interval<T> const & y)
 }
 
 template <typename T>
-Interval<T> interval_merge(std::initializer_list<Interval<T>> intervals)
+Interval<T> interval_union(std::initializer_list<Interval<T>> intervals)
 {
-    return interval_fold(intervals, [] (Interval<T> const & x, Interval<T> const & y) {return interval_merge(x, y);});
+    return interval_fold(intervals, [] (Interval<T> const & x, Interval<T> const & y) {return interval_union(x, y);});
 }
 
 template <typename T>
@@ -255,14 +255,14 @@ Interval<T> interval_and(Interval<T> const & x, Interval<T> const & y)
             I pn = interval_and(UI {px}, UI {ny});
             I pp = interval_and(UI {px}, UI {py});
 
-            return interval_merge({nn, np, pn, pp});
+            return interval_union({nn, np, pn, pp});
         }
         else if (l_x)
         {
             I nx = interval_and(UI {x.sub(x.low, T(-1)) }, UI {y});
             I px = interval_and(UI {x.sub(T(0) , x.high)}, UI {y});
 
-            return interval_merge(nx, px);
+            return interval_union(nx, px);
         }
         else if (l_y)
         {
