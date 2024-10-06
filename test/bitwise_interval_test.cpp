@@ -28,10 +28,8 @@ using namespace std::string_literals;
 #define DEV_REPLAY_RAND
 
 #ifndef INTERVAL_MAX
-#define INTERVAL_MAX 0x1000U
+#define INTERVAL_MAX 0x400U
 #endif
-
-#define BRUTE_STEP_MAX 1
 
 namespace
 {
@@ -39,14 +37,16 @@ namespace
     {
         enum
         {
-            S_1,
-            S_PO2,
-            S_ANY
+            S_0,   // singleton
+            S_1,   // no step
+            S_PO2, // power of two step
+            S_ANY  // any step
 
         };
-        int step = S_ANY;
+        int step = S_1;
         bool hex = false;
         std::size_t num = 0;
+        int verbose = 2;
     } cfg;
 
     template <typename T>
@@ -102,7 +102,7 @@ namespace
         }
         else
         {
-            os << '[' << Dbg {i.low} << ", " << Dbg  {i.high} << "]";
+            os << '[' << Dbg {i.low} << "; " << Dbg  {i.high} << "]";
             if (i.step > 1)
             {
                 os << "/" << Dbg {+i.step, false};
@@ -161,219 +161,161 @@ namespace
     };
 #endif
 
-    enum
-    {
-        S_KO,
-        S_OK,
-        S_OVER
-    };
-
-    template <typename T>
-    struct Score
-    {
-        int type;
-
-        using UT = std::make_unsigned_t<T>;
-
-        struct
-        {
-            UT distance;
-            UT step;
-        } over;
-    };
-
-    template <typename T>
-    Score<T> score(Interval<T> const & a, Interval<T> const & b)
-    {
-        Score<T> s {S_KO};
-
-        if (a == b)
-        {
-            s.type = S_OK;
-        }
-        else if (a >= b)
-        {
-            s.type = S_OVER;
-            s.over.distance = distance(distance(b.low, b.high), distance(a.low, a.high));
-            s.over.step = b.step / a.step;
-        }
-
-        return s;
-    }
-
     Rand rand {};
 
     template <typename T>
-    bool test_interval(Interval<T> const x, Interval<T> const y, bool trace = true)
+    bool test_interval(Interval<T> const x, Interval<T> const y)
     {
         using UT = Interval<T>::UType;
 
-        std::cout << "# x = " << x << "\n# y = " << y << std::endl;
-
-        auto c_not_x = ~x;
-        auto c_not_y = ~y;
-
-        Interval<T> b_not_x, b_not_y;
-        b_not_x.low  = b_not_y.low  = std::numeric_limits<T>::max();
-        b_not_x.high = b_not_y.high = std::numeric_limits<T>::min();
-        b_not_x.step = c_not_x.step, b_not_y.step = c_not_y.step;
-
-        for (T i = x.low; ; i += x.step)
+        struct Test
         {
-            T r;
+            std::set<T> values = {};
 
-            r = ~i;
-            if (r < b_not_x.low)
+            void add(T v) {values.insert(v);}
+
+            Interval<T> operator () () const
             {
-                b_not_x.low = r;
-            }
-            if (r > b_not_x.high)
-            {
-                b_not_x.high = r;
-            }
-            if (i == x.high) break;
-        }
-
-        for (T j = y.low; ; j += y.step)
-        {
-            T r;
-
-            r = ~j;
-            if (r < b_not_y.low)
-            {
-                b_not_y.low = r;
-            }
-            if (r > b_not_y.high)
-            {
-                b_not_y.high = r;
-            }
-            if (j == y.high) break;
-        }
-
-        auto c_and_xy = x & y;
-        auto c_or_xy  = x | y;
-        auto c_xor_xy = x ^ y;
-
-        Interval<T> b_and_xy, b_or_xy, b_xor_xy;
-
-        b_and_xy.low  = b_or_xy.low  = b_xor_xy.low  = std::numeric_limits<T>::max();
-        b_and_xy.high = b_or_xy.high = b_xor_xy.high = std::numeric_limits<T>::min();
-
-        constexpr bool BRUTE_STEP = sizeof (T) <= BRUTE_STEP_MAX;
-
-        struct
-        {
-            std::set<T> vs;
-
-            void add(T v)
-            {
-                if constexpr (BRUTE_STEP)
+                assert(!values.empty());
+                UT step;
+                if (values.size() > 1)
                 {
-                    vs.insert(v);
-                }
-            }
-
-            UT get_step() const
-            {
-                UT s;
-                if (vs.size() > 1)
-                {
-                    auto j = vs.begin();
+                    auto j = values.begin();
                     auto i = j++;
-                    s = distance(*i, *j);
-                    for (i = j++; (j != vs.end()) && (s > 1); i = j++)
+                    step = distance(*i, *j);
+                    for (i = j++; (j != values.end()) && (step > 1); i = j++)
                     {
-                        s = std::gcd(s, distance(*i, *j));
+                        step = std::gcd(step, distance(*i, *j));
                     }
                 }
                 else
                 {
-                    s = 0;
+                    step = 0;
+                }
+                return {*values.begin(), *values.rbegin(), step};
+            }
+        };
+
+        struct Ko {};
+        struct Ok {};
+        struct Over
+        {
+            std::uint64_t distance;
+            std::uint64_t step;
+        };
+
+        using Score = std::variant<Ko, Over, Ok>;
+
+        auto score = [] (auto const & i, auto const & r)
+        {
+            Score score {};
+            if      (i == r) {score = Ok {};}
+            else if (i >= r) {score = Over {distance(distance(r.low, r.high), distance(i.low, i.high)), std::uint64_t(r.step / i.step)};}
+            return score;
+        };
+
+        Interval<T> c_not_x  = ~x;
+        Interval<T> c_not_y  = ~y;
+        Interval<T> c_and_xy = x & y;
+        Interval<T> c_or_xy  = x | y;
+        Interval<T> c_xor_xy = x ^ y;
+
+        Interval<T> b_not_x;
+        Interval<T> b_not_y;
+        Interval<T> b_and_xy;
+        Interval<T> b_or_xy;
+        Interval<T> b_xor_xy;
+
+        Score s_not_x;
+        Score s_not_y;
+        Score s_and_xy;
+        Score s_or_xy;
+        Score s_xor_xy;
+
+        {
+            Test t_not_x {};
+
+            for (T i = x.low; ; i += x.step)
+            {
+                t_not_x.add(T(~i));
+                if (i == x.high) break;
+            }
+            b_not_x = t_not_x();
+            s_not_x = score(c_not_x, b_not_x);
+        }
+
+        {
+            Test t_not_y {};
+
+            for (T i = y.low; ; i += y.step)
+            {
+                t_not_y.add(T(~i));
+                if (i == y.high) break;
+            }
+            b_not_y = t_not_y();
+            s_not_y = score(c_not_y, b_not_y);
+        }
+
+        {
+            Test t_and_xy {};
+            Test t_or_xy  {};
+            Test t_xor_xy {};
+
+            for (T i = x.low; ; i += x.step)
+            {
+                for (T j = y.low; ; j += y.step)
+                {
+                    t_and_xy.add(T(i & j));
+                    t_or_xy .add(T(i | j));
+                    t_xor_xy.add(T(i ^ j));
+
+                    if (j == y.high) break;
+                }
+                if (i == x.high) break;
+            }
+            b_and_xy = t_and_xy();
+            b_or_xy  = t_or_xy ();
+            b_xor_xy = t_xor_xy();
+            s_and_xy = score(c_and_xy, b_and_xy);
+            s_or_xy  = score(c_or_xy , b_or_xy );
+            s_xor_xy = score(c_xor_xy, b_xor_xy);
+        }
+
+        auto scores = {s_not_x, s_not_y, s_and_xy, s_or_xy, s_xor_xy};
+
+        bool ko = std::any_of(std::begin(scores), std::end(scores), [] (auto const & s) {return std::holds_alternative<Ko>(s);});
+        bool ok = std::all_of(std::begin(scores), std::end(scores), [] (auto const & s) {return std::holds_alternative<Ok>(s);});
+
+        if ((ko && (cfg.verbose >= 0)) || (ok && (cfg.verbose >= 2)) || (!ok && cfg.verbose >= 1))
+        {
+            auto score = [] (Score score)
+            {
+                std::string s;
+                if (std::holds_alternative<Ok>(score))
+                {
+                    s = "OK "s;
+                }
+                else if (std::holds_alternative<Ko>(score))
+                {
+                    s = "KO "s;
+                }
+                else
+                {
+                    Over const & over = std::get<Over>(score);
+                    s = "OVER ("s + std::to_string(over.distance) + " / "s + std::to_string(over.step) + ") "s;
                 }
                 return s;
-            }
-        } s_and_xy {}, s_or_xy {}, s_xor_xy {};
-
-        for (T i = x.low; ; i += x.step)
-        {
-            for (T j = y.low; ; j += y.step)
-            {
-                T r;
-
-                r = i & j;
-                s_and_xy.add(r);
-                if (r < b_and_xy.low)
-                {
-                    b_and_xy.low = r;
-                }
-                if (r > b_and_xy.high)
-                {
-                    b_and_xy.high = r;
-                }
-
-                r = i | j;
-                s_or_xy.add(r);
-                if (r < b_or_xy.low)
-                {
-                    b_or_xy.low = r;
-                }
-                if (r > b_or_xy.high)
-                {
-                    b_or_xy.high = r;
-                }
-
-                r = i ^ j;
-                s_xor_xy.add(r);
-                if (r < b_xor_xy.low)
-                {
-                    b_xor_xy.low = r;
-                }
-                if (r > b_xor_xy.high)
-                {
-                    b_xor_xy.high = r;
-                }
-
-                if (j == y.high) break;
-            }
-
-            if (i == x.high) break;
-        }
-
-        if constexpr (BRUTE_STEP)
-        {
-            b_and_xy.step = s_and_xy.get_step();
-            b_or_xy.step  = s_or_xy.get_step();
-            b_xor_xy.step = s_xor_xy.get_step();
-        }
-        else
-        {
-            b_and_xy.step = c_and_xy.step;
-            b_or_xy.step  = c_or_xy.step;
-            b_xor_xy.step = c_xor_xy.step;
-        }
-
-        bool ok = (c_not_x >= b_not_x) && (c_not_y >= b_not_y) && (c_and_xy >= b_and_xy) && (c_or_xy >= b_or_xy) && (c_xor_xy >= b_xor_xy);
-
-        if (!ok || trace)
-        {
-            auto ok = [] (Interval<T> const & a, Interval<T> const & b)
-            {
-                auto [type, over] = score(a, b);
-                return
-                (
-                    (type == S_OK)   ? "OK "s :
-                    (type == S_OVER) ? "OVER ("s + std::to_string(over.distance) + " / " + std::to_string(over.step) + ") " :
-                                       "KO "s
-                );
             };
-            std::cout << ok(c_not_x , b_not_x ) << "not x   : " << c_not_x  << " : " << b_not_x  << std::endl;
-            std::cout << ok(c_not_y , b_not_y ) << "not y   : " << c_not_y  << " : " << b_not_y  << std::endl;
-            std::cout << ok(c_and_xy, b_and_xy) << "and x y : " << c_and_xy << " : " << b_and_xy << std::endl;
-            std::cout << ok(c_or_xy , b_or_xy ) << "or x y  : " << c_or_xy  << " : " << b_or_xy  << std::endl;
-            std::cout << ok(c_xor_xy, b_xor_xy) << "xor x y : " << c_xor_xy << " : " << b_xor_xy << std::endl;
-        }
 
-        return ok;
+            std::cout << "# x = " << x << "\n# y = " << y << '\n';
+            std::cout << "not x   : " << score(s_not_x ) << c_not_x  << " : " << b_not_x  << '\n';
+            std::cout << "not y   : " << score(s_not_y ) << c_not_y  << " : " << b_not_y  << '\n';
+            std::cout << "and x y : " << score(s_and_xy) << c_and_xy << " : " << b_and_xy << '\n';
+            std::cout << "or x y  : " << score(s_or_xy ) << c_or_xy  << " : " << b_or_xy  << '\n';
+            std::cout << "xor x y : " << score(s_xor_xy) << c_xor_xy << " : " << b_xor_xy << '\n';
+        }
+        
+        return !ko;
     }
 
     template <typename T>
@@ -395,10 +337,10 @@ namespace
                 yh = parse<T>(*a++);
                 ys = step ? parse<UT>(*a++) : UT((yl == yh) ? 0 : 1);
             }
-
-            test_interval(Interval<T> {xl, xh, xs}, Interval<T> {yl, yh, ys}, true);
+            cfg.verbose = 2;
+            test_interval(Interval<T> {xl, xh, xs}, Interval<T> {yl, yh, ys});
         }
-        catch(...)
+        catch (...)
         {
             std::cerr << "invalid interval\n";
             return;
@@ -421,19 +363,23 @@ namespace
         }
         else if (cfg.step == Cfg::S_1)
         {
-            step = UT(1);
+            step = 1;
+        }
+        else if (cfg.step == Cfg::S_0)
+        {
+            step = 0;
         }
         else
         {
             step = rand(UT(1), dist);
         }
 
-        UT size = UT(dist / step);
+        UT size = (step > 0) ? UT(dist / step) : UT(0);
         if (size > INTERVAL_MAX) {size = UT(INTERVAL_MAX);}
         size = rand(UT(0), size);
-        if (size == UT(0))
+        if (size == 0)
         {
-            step = UT(0);
+            step = 0;
         }
 
         T high = T(low + size * step);
@@ -448,7 +394,7 @@ namespace
 
         while (true)
         {
-            if (!test_interval(make_random_interval<T>(), make_random_interval<T>(), true))
+            if (!test_interval(make_random_interval<T>(), make_random_interval<T>()))
             {
                 break;
             }
@@ -563,7 +509,7 @@ namespace
     {
         auto p = (std::filesystem::path {file}).filename().string();
         std::cerr << "usage: " << p << " -h\n";
-        std::cerr << "     : " << p << " [-d] [-x] [-s1] [-s2] [-sa] [-n=<num>] <type>\n";
+        std::cerr << "     : " << p << " [-d] [-x] [-s=<0|1|po2|any>] [-n=<num>] <type>\n";
         std::cerr << "     : " << p << " [-d] [-x] <type> <x low> <x high> <y low> <y high>\n";
         std::cerr << "     : " << p << " [-d] [-x] <type> <x low> <x high> <x step> <y low> <y high> <y step>\n";
         std::exit(e);
@@ -577,12 +523,11 @@ int main(int argc, char const * argv[])
         int args = CmdLine
         {
             {"-h" , [argv] () {usage(argv[0], 0);}},
+            {"-v" , [argv] (std::string const & v) {cfg.verbose = parse<decltype (cfg.verbose)>(v);}},
             {"-d" , [] () {cfg.hex = false;}},
             {"-x" , [] () {cfg.hex = true;}},
-            {"-s1", [] () {cfg.step = Cfg::S_1;}},
-            {"-s2", [] () {cfg.step = Cfg::S_PO2;}},
-            {"-sa", [] () {cfg.step = Cfg::S_ANY;}},
-            {"-n" , [] (std::string const & v) {cfg.num = parse<std::size_t>(v);}}
+            {"-s" , [] (std::string const & v) {cfg.step = (v == "0") ? Cfg::S_0 : (v == "1") ? Cfg::S_1 : (v == "po2") ? Cfg::S_PO2 : (v == "any") ? Cfg::S_ANY : throw;}},
+            {"-n" , [] (std::string const & v) {cfg.num = parse<decltype (cfg.num)>(v);}}
         } (argv);
 
         if (args < 0)
