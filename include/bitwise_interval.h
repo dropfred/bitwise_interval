@@ -239,11 +239,11 @@ Interval<T> interval_and(Interval<T> const & x, Interval<T> const & y)
         using I  = Interval<T>;
         using UI = Interval<UT>;
 
-        // loops
-        bool l_x = (x.low < 0) && (x.high >= 0);
-        bool l_y = (y.low < 0) && (y.high >= 0);
+        // signs
+        bool s_x = (x.low < 0) && (x.high >= 0);
+        bool s_y = (y.low < 0) && (y.high >= 0);
 
-        if (l_x && l_y)
+        if (s_x && s_y)
         {
             I nx = x.sub(x.low, T(-1) );
             I px = x.sub(T(0) , x.high);
@@ -257,14 +257,14 @@ Interval<T> interval_and(Interval<T> const & x, Interval<T> const & y)
 
             return interval_union({nn, np, pn, pp});
         }
-        else if (l_x)
+        else if (s_x)
         {
             I nx = interval_and(UI {x.sub(x.low, T(-1)) }, UI {y});
             I px = interval_and(UI {x.sub(T(0) , x.high)}, UI {y});
 
             return interval_union(nx, px);
         }
-        else if (l_y)
+        else if (s_y)
         {
             return interval_and(y, x);
         }
@@ -431,10 +431,15 @@ Interval<T> interval_or(std::initializer_list<Interval<T>> intervals)
 template <typename T>
 Interval<T> interval_xor(Interval<T> const & x, Interval<T> const & y)
 {
-    return interval_or
+    // return interval_or
+    // (
+    //     interval_and(x, interval_not(y)),
+    //     interval_and(interval_not(x), y)
+    // );
+    return interval_and
     (
-        interval_and(x, interval_not(y)),
-        interval_and(interval_not(x), y)
+        interval_not(interval_and(x, y)),
+        interval_not(interval_and(interval_not(x), interval_not(y)))
     );
 }
 
