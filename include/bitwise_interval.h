@@ -161,6 +161,7 @@ struct Interval
 
     Interval sub(Type low, Type high) const
     {
+        assert(!is_empty());
         Type rl = round_up(low);
         Type rh = round_down(high);
         UType s = (rl == rh) ? UType(0) : step;
@@ -201,6 +202,15 @@ Interval<T> interval_fold(std::initializer_list<Interval<T>> intervals, F f)
 template <typename T>
 Interval<T> interval_union(Interval<T> const & x, Interval<T> const & y)
 {
+    if (x.is_empty())
+    {
+        return y; 
+    }
+    if (y.is_empty())
+    {
+        return x; 
+    }
+
     using UT = std::make_unsigned_t<T>;
 
     T low  = std::min(x.low , y.low );
@@ -237,12 +247,25 @@ Interval<T> interval_union(std::initializer_list<Interval<T>> intervals)
 template <typename T>
 Interval<T> interval_not(Interval<T> const & i)
 {
+    if (i.is_empty())
+    {
+        return i;
+    }
     return {T(~i.high), T(~i.low), i.step};
 }
 
 template <typename T>
 Interval<T> interval_and(Interval<T> const & x, Interval<T> const & y)
 {
+    if (x.is_empty())
+    {
+        return y; 
+    }
+    if (y.is_empty())
+    {
+        return x; 
+    }
+
     if constexpr (std::is_signed_v<T>)
     {
         using UT = std::make_unsigned_t<T>;
@@ -441,6 +464,8 @@ Interval<T> interval_or(std::initializer_list<Interval<T>> intervals)
 template <typename T>
 Interval<T> interval_xor(Interval<T> const & x, Interval<T> const & y)
 {
+    // not sure what's going on here: boot methods give correct results,
+    // but sometimes one is better than the other.
     // return interval_or
     // (
     //     interval_and(x, interval_not(y)),
@@ -539,16 +564,14 @@ bool operator > (Interval<T> const & a, Interval<T> const & b)
 template <typename T, typename I>
 Interval<T> operator << (Interval<T> const & i, I s)
 {
-    using UT = std::make_unsigned_t<T>;
-    // return {T(0), T(0), UT(0)};
+    // using UT = std::make_unsigned_t<T>;
     return Interval<T>::Empty;
 }
 
 template <typename T, typename I>
 Interval<T> operator >> (Interval<T> const & i, I s)
 {
-    using UT = std::make_unsigned_t<T>;
-    // return {T(0), T(0), UT(0)};
+    // using UT = std::make_unsigned_t<T>;
     return Interval<T>::Empty;
 }
 
