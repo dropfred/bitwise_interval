@@ -17,10 +17,17 @@ constexpr T msb = T(std::make_unsigned_t<T>(1) << (sizeof (T) * CHAR_BIT - 1));
 
 template <typename UT>
 requires std::is_unsigned_v<UT>
+auto is_pow2(UT n)
+{
+    return ((n & (n - 1)) == 0);
+}
+
+template <typename UT>
+requires std::is_unsigned_v<UT>
 auto get_step2(UT n)
 {
     UT s;
-    if ((n & (n - 1)) == 0)
+    if (is_pow2(n))
     {
         s = n;
     }
@@ -92,7 +99,9 @@ struct Interval
 
     Interval() : Interval(Type(0), Type(0), msb<UType>) {}
 
-    Interval(Type low, Type high, UType step = 1) : low(low), high(high), step(step)
+    template <typename I, typename UI>
+    requires std::is_integral_v<I> && std::is_same_v<UI, std::make_unsigned_t<I>>
+    Interval(I low, I high, UI step = 1) : low(Type(low)), high(Type(high)), step(UType(step))
     {
         assert(low <= high);
         if (low != high)
@@ -519,6 +528,51 @@ Interval<T> operator ^ (Interval<T> const & x, Interval<T> const & y)
     return interval_xor(x, y);
 }
 
+template <typename T, typename I>
+requires std::is_integral_v<I>
+Interval<T> operator & (Interval<T> const & x, I y)
+{
+    using UI = std::make_unsigned_t<I>;
+    return interval_and(x, Interval<T> {y, y, UI(0)});
+}
+
+template <typename T, typename I>
+requires std::is_integral_v<I>
+Interval<T> operator | (Interval<T> const & x, I y)
+{
+    using UI = std::make_unsigned_t<I>;
+    return interval_or(x, Interval<T> {y, y, UI(0)});
+}
+
+template <typename T, typename I>
+requires std::is_integral_v<I>
+Interval<T> operator ^ (Interval<T> const & x, I y)
+{
+    using UI = std::make_unsigned_t<I>;
+    return interval_xor(x, Interval<T> {y, y, UI(0)});
+}
+
+template <typename T, typename I>
+requires std::is_integral_v<I>
+Interval<T> operator & (I x, Interval<T> const & y)
+{
+    return (y & x);
+}
+
+template <typename T, typename I>
+requires std::is_integral_v<I>
+Interval<T> operator | (I x, Interval<T> const & y)
+{
+    return (y | x);
+}
+
+template <typename T, typename I>
+requires std::is_integral_v<I>
+Interval<T> operator ^ (I x, Interval<T> const & y)
+{
+    return (y ^ x);
+}
+
 template <typename T>
 bool operator == (Interval<T> const & a, Interval<T> const & b)
 {
@@ -561,18 +615,22 @@ bool operator > (Interval<T> const & a, Interval<T> const & b)
     return (b < a);
 }
 
+// TODO
 template <typename T, typename I>
 Interval<T> operator << (Interval<T> const & i, I s)
 {
-    // using UT = std::make_unsigned_t<T>;
-    return Interval<T>::Empty;
+    T low  = i.low  << s;
+    T high = i.high << s;
+    return {std::min(low, high), std::max(low, high), i.step << s};
 }
 
+// TODO
 template <typename T, typename I>
 Interval<T> operator >> (Interval<T> const & i, I s)
 {
-    // using UT = std::make_unsigned_t<T>;
-    return Interval<T>::Empty;
+    T low  = i.low  >> s;
+    T high = i.high >> s;
+    return {std::min(low, high), std::max(low, high), i.step >> s};
 }
 
 #endif
