@@ -558,7 +558,7 @@ bool operator < (Interval<T> const & a, Interval<T> const & b)
 template <typename T>
 bool operator > (Interval<T> const & a, Interval<T> const & b)
 {
-    return (b > a);
+    return (b < a);
 }
 
 template <typename T, typename I>
