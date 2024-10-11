@@ -619,18 +619,37 @@ bool operator > (Interval<T> const & a, Interval<T> const & b)
 template <typename T, typename I>
 Interval<T> operator << (Interval<T> const & i, I s)
 {
-    T low  = i.low  << s;
-    T high = i.high << s;
-    return {std::min(low, high), std::max(low, high), i.step << s};
+    // if T is signed:
+    //   - i must be >= 0, UB otherwise.
+    //   - (i << s) <= 7F..., UB otherwise.
+    using UT = std::make_unsigned_t<T>;
+    T  low  = i.low  << s;
+    T  high = i.high << s;
+    UT step = i.step << s;
+    return {std::min(low, high), std::max(low, high), step};
 }
 
 // TODO
 template <typename T, typename I>
 Interval<T> operator >> (Interval<T> const & i, I s)
 {
-    T low  = i.low  >> s;
-    T high = i.high >> s;
-    return {std::min(low, high), std::max(low, high), i.step >> s};
+    using UT = std::make_unsigned_t<T>;
+    T low   = i.low  >> s;
+    T high  = i.high >> s;
+    UT step = get_step2(i.step);
+    if (step >= (UT(1) << s))
+    {
+        step >>= s;
+    }
+    else
+    {
+        step = 1;
+    }
+    if (low == high)
+    {
+        step = 0;
+    }
+    return {low, high, step};
 }
 
 #endif
