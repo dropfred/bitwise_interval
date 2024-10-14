@@ -6,6 +6,7 @@
 #include <numeric>
 #include <climits>
 #include <functional>
+#include <bit>
 #include <cassert>
 
 //
@@ -17,29 +18,9 @@ constexpr T msb = T(std::make_unsigned_t<T>(1) << (sizeof (T) * CHAR_BIT - 1));
 
 template <typename UT>
 requires std::is_unsigned_v<UT>
-auto is_pow2(UT n)
-{
-    return ((n & (n - 1)) == 0);
-}
-
-template <typename UT>
-requires std::is_unsigned_v<UT>
 auto get_step2(UT n)
 {
-    UT s;
-    if (is_pow2(n))
-    {
-        s = n;
-    }
-    else
-    {
-        s = 1;
-        while ((n & s) == 0)
-        {
-            s <<= 1;
-        }
-    }
-    return s;
+    return UT(UT(1) << std::countr_zero(n));
 }
 
 template <typename T>
@@ -111,7 +92,7 @@ struct Interval
         }
         else
         {
-            assert((step == 0) || is_empty());
+            assert(is_singleton() || is_empty());
         }
     }
 
@@ -132,7 +113,7 @@ struct Interval
 
     Type round_up(Type v) const
     {
-        assert(v >= low);
+        assert(!is_empty() && (v >= low));
         if (!is_singleton())
         {
             UType r  = umod(low, step);
@@ -151,7 +132,7 @@ struct Interval
 
     Type round_down(Type v) const
     {
-        assert(v <= high);
+        assert(!is_empty() && (v <= high));
         if (!is_singleton())
         {
             UType r  = umod(low, step);
@@ -619,9 +600,6 @@ bool operator > (Interval<T> const & a, Interval<T> const & b)
 template <typename T, typename I>
 Interval<T> operator << (Interval<T> const & i, I s)
 {
-    // if T is signed:
-    //   - i must be >= 0, UB otherwise.
-    //   - (i << s) <= 7F..., UB otherwise.
     using UT = std::make_unsigned_t<T>;
     T  low  = i.low  << s;
     T  high = i.high << s;
@@ -637,17 +615,17 @@ Interval<T> operator >> (Interval<T> const & i, I s)
     T low   = i.low  >> s;
     T high  = i.high >> s;
     UT step = get_step2(i.step);
-    if (step >= (UT(1) << s))
+    if (low == high)
+    {
+        step = 0;
+    }
+    else if (std::countr_zero(step) >= s)
     {
         step >>= s;
     }
     else
     {
         step = 1;
-    }
-    if (low == high)
-    {
-        step = 0;
     }
     return {low, high, step};
 }
